@@ -6,18 +6,26 @@
  * backend is unreachable, so the experience never dead-ends on a network error.
  */
 import { apiJson } from "@/lib/api-client";
+import { getAuthToken } from "@/lib/auth-token";
 import { env } from "@/lib/env";
 import { MOCK_CHAT_RESPONSE, mockStream } from "@/lib/mock";
 import type { ChatRequestInput, ChatResponse, StreamEvent } from "@/types/api";
 
 function toFormData(input: ChatRequestInput): FormData {
   const form = new FormData();
-  form.append("session_id", input.session_id);
   form.append("message", input.message);
   if (input.face_image) form.append("face_image", input.face_image);
   if (input.garment_image) form.append("garment_image", input.garment_image);
   form.append("garment_category", input.garment_category ?? "upper_body");
   return form;
+}
+
+/** Auth + server-owned-session headers for a request. */
+async function authHeaders(input: ChatRequestInput): Promise<Record<string, string>> {
+  const headers: Record<string, string> = { "X-Session-Id": input.session_id };
+  const token = await getAuthToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+  return headers;
 }
 
 /** Non-streaming chat turn. Falls back to mock data if the backend is down. */
@@ -27,6 +35,7 @@ export async function sendChat(input: ChatRequestInput): Promise<ChatResponse> {
     return await apiJson<ChatResponse>("/api/v1/chat", {
       method: "POST",
       body: toFormData(input),
+      headers: await authHeaders(input),
     });
   } catch {
     return { ...MOCK_CHAT_RESPONSE, session_id: input.session_id };
@@ -52,6 +61,7 @@ export async function* streamChat(
     response = await fetch(`${env.apiBaseUrl}/api/v1/chat/stream`, {
       method: "POST",
       body: toFormData(input),
+      headers: await authHeaders(input),
       signal,
     });
     if (!response.ok || !response.body) throw new Error("stream unavailable");

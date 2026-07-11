@@ -130,3 +130,35 @@ class ResourceNotFoundError(AuraError):
 
     status_code = 404
     error_code = "not_found"
+
+
+class UnauthenticatedError(AuraError):
+    """The request lacks valid authentication credentials."""
+
+    status_code = 401
+    error_code = "unauthenticated"
+
+
+class ForbiddenError(AuraError):
+    """The caller is authenticated but not allowed to perform this action."""
+
+    status_code = 403
+    error_code = "forbidden"
+
+
+class RateLimitedError(AuraError):
+    """The caller has exceeded the allowed request rate."""
+
+    status_code = 429
+    error_code = "rate_limited"
+
+    def __init__(self, message: str | None = None, retry_after: int | None = None) -> None:
+        super().__init__(message)
+        self.retry_after = retry_after
+
+
+class ValidationError(AuraError):
+    """Inbound data failed validation (size, type, content)."""
+
+    status_code = 422
+    error_code = "validation_error"

@@ -1,17 +1,19 @@
 """Application entrypoint.
 
-Builds and configures the FastAPI application: logging, middleware, exception
-handlers and versioned routers. Import ``app`` from here to run under an ASGI
-server (``uvicorn app.main:app``).
+Builds and configures the FastAPI application: logging, security middleware,
+observability, exception handlers and versioned routers. Import ``app`` from here
+to run under an ASGI server (``uvicorn app.main:app``).
 """
 
-from contextlib import asynccontextmanager
 from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.router import api_router
+from app.auth.clerk import ClerkVerifier
+from app.auth.session import AuditLogger, SessionService
 from app.config.config import get_settings
 from app.core.dependencies import build_aura_agent
 from app.core.logging import configure_logging, get_logger
@@ -19,44 +21,62 @@ from app.db.redis import get_redis_client
 from app.db.supabase import get_supabase_client
 from app.middleware.error_handler import register_exception_handlers
 from app.middleware.request_context import RequestContextMiddleware
+from app.observability.setup import init_observability
+from app.security.headers import SecurityHeadersMiddleware
+from app.security.secrets import validate_secrets
 from app.services.youcam_client import YouCamClient
+from app.storage.object_store import ObjectStore
 
 logger = get_logger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """Manage startup and shutdown side effects.
+    """Manage startup and shutdown.
 
-    Shared, pooled clients (YouCam, Redis) and the assembled AuraAgent are
-    created here and reused for the process lifetime, then closed on shutdown.
-    The agent is only built when a Gemini key is configured; otherwise the direct
-    YouCam REST endpoints still work and the chat endpoint reports it clearly.
+    Validates secrets (fails fast in prod), builds shared clients and the agent,
+    and wires auth/session/audit/storage onto ``app.state``. On shutdown, closes
+    pooled clients for a graceful exit.
     """
 
     settings = get_settings()
+    validate_secrets(settings)
+
+    try:
+        supabase = get_supabase_client(settings)
+    except Exception:  # noqa: BLE001 - Supabase optional in dev
+        supabase = None
+
+    app.state.settings = settings
+    app.state.supabase = supabase
     app.state.youcam_client = YouCamClient(settings)
     app.state.redis = get_redis_client(settings)
+    app.state.object_store = ObjectStore(settings, supabase) if supabase is not None else None
+    app.state.clerk_verifier = ClerkVerifier(settings)
+    app.state.session_service = SessionService(settings, supabase)
+    app.state.audit = AuditLogger(supabase)
     app.state.aura_agent = None
 
-    if settings.gemini_api_key:
-        from app.services.gemini_client import GeminiChatModel
+    from app.services.llm_factory import build_llm
 
-        try:
-            supabase = get_supabase_client(settings)
-        except Exception:  # noqa: BLE001 - Supabase is optional for the agent
-            supabase = None
+    llm = build_llm(settings)
+    if llm is not None:
         app.state.aura_agent = build_aura_agent(
             settings,
             youcam_client=app.state.youcam_client,
-            llm=GeminiChatModel(settings),
+            llm=llm,
             redis=app.state.redis,
             supabase=supabase,
         )
     else:
-        logger.warning("agent.disabled", reason="GEMINI_API_KEY not set")
+        logger.warning("agent.disabled", reason="no LLM provider key configured (Groq/Gemini)")
 
-    logger.info("application.startup", environment=settings.environment)
+    logger.info(
+        "application.startup",
+        environment=settings.environment,
+        auth_required=settings.auth_required,
+        clerk_configured=app.state.clerk_verifier.configured,
+    )
     try:
         yield
     finally:
@@ -79,16 +99,21 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
+    # Middleware runs in reverse registration order: request-context first
+    # (correlation id), then CORS, then security headers on the way out.
+    if settings.security_headers_enabled:
+        app.add_middleware(SecurityHeadersMiddleware, settings=settings)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
         allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+        allow_headers=["Authorization", "Content-Type", "X-Session-Id", "X-Request-ID"],
     )
     app.add_middleware(RequestContextMiddleware)
 
     register_exception_handlers(app)
+    init_observability(app, settings)
 
     app.include_router(api_router, prefix=settings.api_v1_prefix)
 

@@ -16,6 +16,7 @@ httpx = "^0.27.0"
 cryptography = "^43.0.0"
 langgraph = "^0.2.0"
 langchain-core = "^0.3.0"
+langchain-groq = "^0.2.0"
 langchain-google-genai = "^2.0.0"
 google-generativeai = "^0.8.0"
 supabase = "^2.9.0"
@@ -24,6 +25,14 @@ python-multipart = "^0.0.12"
 tenacity = "^9.0.0"
 structlog = "^24.4.0"
 orjson = "^3.10.0"
+# --- Auth & security ---
+pyjwt = { extras = ["crypto"], version = "^2.9.0" }
+# --- Observability (optional at runtime; guarded imports) ---
+sentry-sdk = { extras = ["fastapi"], version = "^2.17.0" }
+opentelemetry-sdk = "^1.27.0"
+opentelemetry-instrumentation-fastapi = "^0.48b0"
+opentelemetry-exporter-otlp-proto-http = "^1.27.0"
+prometheus-fastapi-instrumentator = "^7.0.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.0"
@@ -43,6 +52,9 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "UP", "B", "C4", "SIM"]
+# B008: `File()`/`Form()`/`Depends()` in defaults is the canonical FastAPI idiom.
+# UP042/UP046: `str, Enum` and `Generic[T]` are intentional, portable patterns.
+ignore = ["B008", "UP042", "UP046"]
 
 [tool.mypy]
 python_version = "3.12"

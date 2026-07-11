@@ -176,7 +176,9 @@ export function SettingsView() {
           </CardHeader>
           <CardContent className="space-y-4">
             <Row label="Session ID">
-              <code className="rounded-md bg-muted px-2 py-1 text-xs">{sessionId}</code>
+              <code className="rounded-md bg-muted px-2 py-1 text-xs">
+                {mounted ? sessionId : "…"}
+              </code>
             </Row>
             <Separator />
             <div className="flex flex-wrap gap-2">

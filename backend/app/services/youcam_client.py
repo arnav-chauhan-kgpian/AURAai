@@ -61,10 +61,8 @@ def classify_youcam_error(
         return NoFaceDetectedError(error_text or None)
     if any(k in text for k in ("multiple face", "more than one face", "multi_face", "multiface")):
         return MultipleFacesError(error_text or None)
-    if any(
-        k in text
-        for k in ("invalid image", "unsupported", "decode", "bad image", "resolution", "image_error")
-    ):
+    _invalid = ("invalid image", "unsupported", "decode", "bad image", "resolution", "image_error")
+    if any(k in text for k in _invalid):
         return InvalidImageError(error_text or None)
     if any(k in text for k in ("expired", "not found", "task_not_found", "no such task")):
         return ExpiredTaskError(error_text or None)
@@ -307,7 +305,9 @@ class YouCamClient:
             headers={str(k): str(v) for k, v in (upload.get("headers") or {}).items()},
         )
 
-    async def upload_binary(self, target: FileUploadTarget, content: bytes, content_type: str) -> None:
+    async def upload_binary(
+        self, target: FileUploadTarget, content: bytes, content_type: str
+    ) -> None:
         """Upload raw image bytes to a presigned File API target."""
 
         headers = dict(target.headers)

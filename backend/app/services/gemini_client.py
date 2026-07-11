@@ -12,7 +12,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
 from pydantic import BaseModel
 
-from app.agents.llm import LLMResult, StructuredResult, TokenUsage, T
+from app.agents.llm import LLMResult, StructuredResult, T, TokenUsage
 from app.config.config import Settings
 from app.core.logging import get_logger
 

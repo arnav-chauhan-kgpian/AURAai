@@ -23,7 +23,7 @@ def _normalise_pem(secret_key: str) -> bytes:
     if _PEM_HEADER in key:
         return key.encode("utf-8")
     body = "\n".join(key[i : i + 64] for i in range(0, len(key), 64))
-    return f"{_PEM_HEADER}\n{body}\n{_PEM_FOOTER}\n".encode("utf-8")
+    return f"{_PEM_HEADER}\n{body}\n{_PEM_FOOTER}\n".encode()
 
 
 def build_id_token(api_key: str, secret_key: str, *, timestamp_ms: int | None = None) -> str:
@@ -36,7 +36,7 @@ def build_id_token(api_key: str, secret_key: str, *, timestamp_ms: int | None = 
     """
 
     stamp = timestamp_ms if timestamp_ms is not None else int(time.time() * 1000)
-    payload = f"client_id={api_key}&timestamp={stamp}".encode("utf-8")
+    payload = f"client_id={api_key}&timestamp={stamp}".encode()
     public_key = load_pem_public_key(_normalise_pem(secret_key))
     encrypted = public_key.encrypt(payload, padding.PKCS1v15())  # type: ignore[union-attr]
     return base64.b64encode(encrypted).decode("utf-8")

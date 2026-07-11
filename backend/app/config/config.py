@@ -68,7 +68,15 @@ class Settings(BaseSettings):
     # Ceiling on concurrent in-flight requests to the provider.
     youcam_max_concurrent_requests: int = 8
 
-    # --- Google Gemini ----------------------------------------------------
+    # --- LLM provider -----------------------------------------------------
+    # "auto" prefers Groq when a key is set, otherwise Gemini.
+    llm_provider: Literal["auto", "groq", "gemini"] = "auto"
+
+    # Groq
+    groq_api_key: str = ""
+    groq_model: str = "llama-3.3-70b-versatile"
+
+    # Google Gemini
     gemini_api_key: str = ""
     gemini_model: str = "gemini-2.5-flash"
 
@@ -84,6 +92,71 @@ class Settings(BaseSettings):
     # --- Agent ------------------------------------------------------------
     agent_max_iterations: int = 12
     agent_recursion_limit: int = 25
+
+    # --- Authentication (Clerk) ------------------------------------------
+    # When False (dev/demo), unauthenticated requests fall back to an
+    # anonymous context. Production must set this True.
+    auth_required: bool = False
+    clerk_publishable_key: str = ""
+    clerk_secret_key: str = ""
+    # Issuer, e.g. https://<slug>.clerk.accounts.dev ; JWKS is derived from it.
+    clerk_issuer: str = ""
+    clerk_jwks_url: str = ""
+    # Authorized parties (`azp`) — your frontend origins.
+    clerk_authorized_parties: list[str] = Field(default_factory=list)
+    jwks_cache_seconds: int = 600
+
+    # --- Security ---------------------------------------------------------
+    security_headers_enabled: bool = True
+    hsts_enabled: bool = False  # enable only behind HTTPS
+    max_upload_bytes: int = 10 * 1024 * 1024  # 10 MB
+    allowed_image_types: tuple[str, ...] = ("image/jpeg", "image/png", "image/webp")
+    rate_limit_per_minute: int = 60
+    rate_limit_enabled: bool = True
+    virus_scan_enabled: bool = False
+    clamav_host: str = ""
+    clamav_port: int = 3310
+
+    # --- Privacy / storage ------------------------------------------------
+    signed_url_ttl_seconds: int = 3600
+    image_retention_days: int = 30
+    consent_required: bool = True
+
+    # --- Observability ----------------------------------------------------
+    sentry_dsn: str = ""
+    sentry_traces_sample_rate: float = 0.1
+    otel_exporter_otlp_endpoint: str = ""
+    otel_service_name: str = "aura-backend"
+    metrics_enabled: bool = True
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def resolved_clerk_jwks_url(self) -> str:
+        """JWKS URL: explicit override, else derived from the issuer."""
+
+        if self.clerk_jwks_url:
+            return self.clerk_jwks_url
+        if self.clerk_issuer:
+            return f"{self.clerk_issuer.rstrip('/')}/.well-known/jwks.json"
+        return ""
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def is_production(self) -> bool:
+        return self.environment == "production"
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def resolved_llm_provider(self) -> str:
+        """Which LLM backend to use: 'groq', 'gemini', or 'none'."""
+
+        if self.llm_provider != "auto":
+            return self.llm_provider
+        if self.groq_api_key:
+            return "groq"
+        if self.gemini_api_key:
+            return "gemini"
+        return "none"
 
     def _youcam_url(self, path: str) -> str:
         return f"{self.youcam_base_url.rstrip('/')}{path}"

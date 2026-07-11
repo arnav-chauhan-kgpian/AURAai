@@ -17,9 +17,9 @@ from app.agents.memory import (
     InMemoryProfileRepository,
     ProfileRepository,
 )
+from app.agents.planner import Planner
 from app.agents.stores import RedisSessionCache, SupabaseProfileRepository
 from app.agents.summarizer import Summarizer
-from app.agents.planner import Planner
 from app.agents.tool_registry import ToolRegistry
 from app.config.config import Settings, get_settings
 from app.core.exceptions import ConfigurationError

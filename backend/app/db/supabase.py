@@ -7,10 +7,9 @@ client instance rather than constructing connections ad hoc.
 
 from functools import lru_cache
 
-from supabase import Client, create_client
-
 from app.config.config import Settings
 from app.core.exceptions import ConfigurationError
+from supabase import Client, create_client
 
 SupabaseClient = Client
 

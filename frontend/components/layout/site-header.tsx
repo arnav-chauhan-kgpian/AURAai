@@ -6,6 +6,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 
+import { AuthControls } from "@/components/auth/auth-controls";
 import { DemoBadge } from "@/components/layout/demo-badge";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { buttonVariants } from "@/components/ui/button-variants";
@@ -61,6 +62,7 @@ export function SiteHeader() {
           >
             Start Analysis
           </Link>
+          <AuthControls />
           <button
             type="button"
             className="grid size-10 place-items-center rounded-full border border-border md:hidden focus-visible:ring-focus"
