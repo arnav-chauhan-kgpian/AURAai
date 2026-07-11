@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="620" viewBox="0 0 960 620" font-family="-apple-system, Segoe UI, Roboto, sans-serif">
+  <defs>
+    <linearGradient id="brand" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#8b5cf6"/>
+      <stop offset="50%" stop-color="#6d6ef6"/>
+      <stop offset="100%" stop-color="#d946ef"/>
+    </linearGradient>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#8b8ba7"/>
+    </marker>
+    <style>
+      .bg{fill:#0a0a0f}
+      .sub{fill:#9a9ab5;font-size:12.5px}
+      .node{fill:#141420;stroke:#2e2e46;stroke-width:1.5}
+      .nlbl{fill:#f4f4f8;font-size:14px;font-weight:600}
+      .edge{stroke:#3a3a52;stroke-width:1.8;fill:none}
+      .elbl{fill:#c9c9e0;font-size:11.5px}
+      .done{fill:#8b5cf6}
+    </style>
+  </defs>
+
+  <rect class="bg" width="960" height="620"/>
+  <text x="40" y="46" font-size="24" font-weight="800" fill="#f4f4f8">Aura<tspan fill="url(#brand)">AI</tspan> · Agent Workflow</text>
+  <text x="40" y="68" class="sub">"I have acne, what should I wear? Can I try this jacket?" → the agent plans the whole turn</text>
+
+  <!-- START -->
+  <rect x="410" y="92" width="140" height="44" rx="22" fill="url(#brand)"/>
+  <text x="480" y="120" text-anchor="middle" fill="#fff" font-size="15" font-weight="700">START</text>
+  <path class="edge" d="M480,136 L480,172" marker-end="url(#arrow)"/>
+
+  <!-- detect_intent -->
+  <rect x="360" y="176" width="240" height="64" rx="14" class="node"/>
+  <text x="480" y="204" text-anchor="middle" class="nlbl">detect_intent</text>
+  <text x="480" y="224" text-anchor="middle" class="sub">recall memory · Planner (Gemini)</text>
+
+  <!-- intent pill -->
+  <rect x="628" y="190" width="230" height="36" rx="18" fill="#1c1c2c" stroke="#2e2e46"/>
+  <text x="743" y="213" text-anchor="middle" fill="#c9a2ff" font-size="12.5" font-weight="600">intent = SKIN_AND_STYLE</text>
+  <path class="edge" d="M600,208 L626,208" marker-end="url(#arrow)"/>
+
+  <!-- conditional -->
+  <path class="edge" d="M480,240 L480,276" marker-end="url(#arrow)"/>
+  <text x="492" y="264" class="elbl">route: has tools?</text>
+
+  <!-- execute_tools -->
+  <rect x="330" y="280" width="300" height="150" rx="14" class="node"/>
+  <text x="480" y="306" text-anchor="middle" class="nlbl">execute_tools</text>
+
+  <g>
+    <rect x="352" y="320" width="256" height="26" rx="8" fill="#1c1c2c" stroke="#2e2e46"/>
+    <text x="366" y="338" class="elbl">1 · skin_analysis  →  YouCam</text>
+    <rect x="352" y="352" width="256" height="26" rx="8" fill="#1c1c2c" stroke="#2e2e46"/>
+    <text x="366" y="370" class="elbl">2 · color_palette  →  tone → season</text>
+    <rect x="352" y="384" width="256" height="26" rx="8" fill="#1c1c2c" stroke="#2e2e46"/>
+    <text x="366" y="402" class="elbl">3 · recommendation  →  Gemini</text>
+    <rect x="352" y="416" width="256" height="0" />
+  </g>
+
+  <!-- 4th tool outside for spacing -->
+  <rect x="672" y="352" width="240" height="52" rx="12" fill="#141420" stroke="#2e2e46"/>
+  <text x="792" y="374" text-anchor="middle" class="elbl">4 · virtual_try_on  →  YouCam</text>
+  <text x="792" y="392" text-anchor="middle" class="sub">(runs when a garment is attached)</text>
+  <path class="edge" d="M630,378 L670,378" marker-end="url(#arrow)"/>
+
+  <path class="edge" d="M480,430 L480,466" marker-end="url(#arrow)"/>
+
+  <!-- summarize -->
+  <rect x="360" y="470" width="240" height="60" rx="14" class="node"/>
+  <text x="480" y="496" text-anchor="middle" class="nlbl">summarize</text>
+  <text x="480" y="516" text-anchor="middle" class="sub">Gemini · streamed token-by-token</text>
+
+  <path class="edge" d="M480,530 L480,558" marker-end="url(#arrow)"/>
+
+  <!-- persist + END -->
+  <rect x="330" y="562" width="300" height="34" rx="12" class="node"/>
+  <text x="480" y="584" text-anchor="middle" class="elbl">persist_memory  →  Redis + Supabase  →  END</text>
+
+  <!-- skip path -->
+  <path class="edge" d="M360,208 C150,208 150,500 358,500" marker-end="url(#arrow)"/>
+  <text x="70" y="356" class="elbl">CHAT_ONLY /</text>
+  <text x="70" y="372" class="elbl">UNKNOWN:</text>
+  <text x="70" y="388" class="elbl">skip tools →</text>
+  <text x="70" y="404" class="elbl">summarize</text>
+</svg>

@@ -1,0 +1,102 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="600" viewBox="0 0 960 600" font-family="-apple-system, Segoe UI, Roboto, sans-serif">
+  <defs>
+    <linearGradient id="brand" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#8b5cf6"/>
+      <stop offset="50%" stop-color="#6d6ef6"/>
+      <stop offset="100%" stop-color="#d946ef"/>
+    </linearGradient>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#8b8ba7"/>
+    </marker>
+    <style>
+      .bg{fill:#0a0a0f}
+      .card{fill:#141420;stroke:#26263a;stroke-width:1.5;rx:16}
+      .lbl{fill:#f4f4f8;font-weight:600}
+      .sub{fill:#9a9ab5;font-size:12px}
+      .tag{fill:#c9c9e0;font-size:12px}
+      .title{fill:#f4f4f8;font-size:15px;font-weight:700}
+      .edge{stroke:#3a3a52;stroke-width:1.6;fill:none}
+      .chip{fill:#1c1c2c;stroke:#2e2e46;stroke-width:1}
+    </style>
+  </defs>
+
+  <rect class="bg" width="960" height="600"/>
+  <text x="40" y="46" font-size="24" font-weight="800" fill="#f4f4f8">Aura<tspan fill="url(#brand)">AI</tspan> · System Architecture</text>
+  <text x="40" y="68" class="sub">Autonomous AI skin &amp; style agent — the agent decides which tools to run</text>
+
+  <!-- Frontend -->
+  <rect x="40" y="92" width="880" height="96" rx="16" class="card"/>
+  <rect x="40" y="92" width="6" height="96" rx="3" fill="url(#brand)"/>
+  <text x="66" y="122" class="title">Next.js 15 Frontend</text>
+  <text x="66" y="144" class="sub">Landing · Chat · Dashboard (Conversation │ Timeline │ Results) · Settings</text>
+  <text x="66" y="166" class="sub">Zustand · React Query · Framer Motion · Tailwind · streaming SSE hook · Demo Mode</text>
+
+  <!-- arrow down -->
+  <path class="edge" d="M480,188 L480,224" marker-end="url(#arrow)"/>
+  <text x="492" y="212" class="tag">POST /chat/stream (SSE) · REST</text>
+
+  <!-- Backend -->
+  <rect x="40" y="228" width="880" height="196" rx="16" class="card"/>
+  <rect x="40" y="228" width="6" height="196" rx="3" fill="url(#brand)"/>
+  <text x="66" y="258" class="title">FastAPI Backend · AuraAgent (LangGraph)</text>
+
+  <!-- graph nodes -->
+  <g>
+    <rect x="66" y="278" width="150" height="42" rx="10" class="chip"/>
+    <text x="141" y="304" text-anchor="middle" class="tag">detect_intent</text>
+    <rect x="238" y="278" width="150" height="42" rx="10" class="chip"/>
+    <text x="313" y="304" text-anchor="middle" class="tag">execute_tools</text>
+    <rect x="410" y="278" width="140" height="42" rx="10" class="chip"/>
+    <text x="480" y="304" text-anchor="middle" class="tag">summarize</text>
+    <rect x="572" y="278" width="160" height="42" rx="10" class="chip"/>
+    <text x="652" y="304" text-anchor="middle" class="tag">persist_memory</text>
+    <path class="edge" d="M216,299 L236,299" marker-end="url(#arrow)"/>
+    <path class="edge" d="M388,299 L408,299" marker-end="url(#arrow)"/>
+    <path class="edge" d="M550,299 L570,299" marker-end="url(#arrow)"/>
+  </g>
+
+  <text x="66" y="352" class="sub">Planner (Gemini structured) · ToolRegistry · Summarizer · ConversationMemory</text>
+
+  <!-- tools -->
+  <g>
+    <rect x="66" y="366" width="180" height="40" rx="10" class="chip"/>
+    <text x="156" y="391" text-anchor="middle" class="tag">SkinAnalysisTool</text>
+    <rect x="258" y="366" width="180" height="40" rx="10" class="chip"/>
+    <text x="348" y="391" text-anchor="middle" class="tag">VirtualTryOnTool</text>
+    <rect x="450" y="366" width="170" height="40" rx="10" class="chip"/>
+    <text x="535" y="391" text-anchor="middle" class="tag">ColorPaletteTool</text>
+    <rect x="632" y="366" width="180" height="40" rx="10" class="chip"/>
+    <text x="722" y="391" text-anchor="middle" class="tag">RecommendationTool</text>
+  </g>
+
+  <!-- edges to services -->
+  <path class="edge" d="M180,424 L180,470" marker-end="url(#arrow)"/>
+  <path class="edge" d="M400,424 L400,470" marker-end="url(#arrow)"/>
+  <path class="edge" d="M620,424 L620,470" marker-end="url(#arrow)"/>
+  <path class="edge" d="M820,424 L820,470" marker-end="url(#arrow)"/>
+
+  <!-- services -->
+  <g>
+    <rect x="60" y="474" width="230" height="86" rx="14" class="card"/>
+    <text x="80" y="504" class="lbl" font-size="14">YouCam APIs</text>
+    <text x="80" y="526" class="sub">Skin Analysis · Apparel Try-On</text>
+    <text x="80" y="546" class="sub">async task · retry · polling</text>
+
+    <rect x="306" y="474" width="200" height="86" rx="14" class="card"/>
+    <text x="326" y="504" class="lbl" font-size="14">Gemini 2.5 Flash</text>
+    <text x="326" y="526" class="sub">intent + reasoning</text>
+    <text x="326" y="546" class="sub">structured + streaming</text>
+
+    <rect x="522" y="474" width="190" height="86" rx="14" class="card"/>
+    <text x="542" y="504" class="lbl" font-size="14">Supabase</text>
+    <text x="542" y="526" class="sub">durable profile</text>
+    <text x="542" y="546" class="sub">Postgres + Storage</text>
+
+    <rect x="728" y="474" width="192" height="86" rx="14" class="card"/>
+    <text x="748" y="504" class="lbl" font-size="14">Redis</text>
+    <text x="748" y="526" class="sub">session memory</text>
+    <text x="748" y="546" class="sub">history + snapshot</text>
+  </g>
+
+  <text x="40" y="586" class="sub">Dockerised · clean architecture · typed end-to-end · 30 backend tests</text>
+</svg>
