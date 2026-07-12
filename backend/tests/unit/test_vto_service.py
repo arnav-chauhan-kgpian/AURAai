@@ -27,15 +27,18 @@ def _cloth_handler(request: httpx.Request) -> httpx.Response:
         )
     if host == "up.example" and method == "PUT":
         return httpx.Response(200)
+    # v2.0 cloth: flat POST payload; status fetched by path param with `data`
+    # wrapper + `task_status` field + `results.url` (verified against live API).
     if path.endswith("/task/cloth") and method == "POST":
-        return httpx.Response(200, json={"result": {"task_id": "VTO-TASK"}})
-    if path.endswith("/task/cloth") and method == "GET":
+        return httpx.Response(200, json={"data": {"task_id": "VTO-TASK"}})
+    if "/task/cloth/" in path and method == "GET":
         return httpx.Response(
             200,
             json={
-                "result": {
-                    "status": "success",
-                    "results": [{"data": [{"url": "https://out.example/render.jpg"}]}],
+                "data": {
+                    "task_status": "success",
+                    "error": None,
+                    "results": {"url": "https://out.example/render.jpg"},
                 }
             },
         )

@@ -61,7 +61,10 @@ def classify_youcam_error(
         return NoFaceDetectedError(error_text or None)
     if any(k in text for k in ("multiple face", "more than one face", "multi_face", "multiface")):
         return MultipleFacesError(error_text or None)
-    _invalid = ("invalid image", "unsupported", "decode", "bad image", "resolution", "image_error")
+    _invalid = (
+        "invalid image", "unsupported", "decode", "bad image", "resolution", "image_error",
+        "image_size", "min_image_size", "too small", "too large", "below_min",
+    )
     if any(k in text for k in _invalid):
         return InvalidImageError(error_text or None)
     if any(k in text for k in ("expired", "not found", "task_not_found", "no such task")):
@@ -142,7 +145,7 @@ class YouCamClient:
             json={"client_id": settings.youcam_api_key, "id_token": id_token},
         )
         body = self._decode(response)
-        token = _dig(body, "result", "access_token") or _dig(body, "access_token")
+        token = _envelope(body).get("access_token")
         if not isinstance(token, str) or not token:
             raise AuthenticationError("YouCam auth response did not contain an access token")
         return token
@@ -277,17 +280,25 @@ class YouCamClient:
     # --- File API ---------------------------------------------------------
 
     async def request_upload_target(
-        self, file_endpoint_url: str, file_name: str, content_type: str
+        self, file_endpoint_url: str, file_name: str, content_type: str, file_size: int
     ) -> FileUploadTarget:
         """Call the File API to obtain a presigned upload target and file id."""
 
         response = await self._request(
             "POST",
             file_endpoint_url,
-            json={"files": [{"content_type": content_type, "file_name": file_name}]},
+            json={
+                "files": [
+                    {
+                        "content_type": content_type,
+                        "file_name": file_name,
+                        "file_size": file_size,
+                    }
+                ]
+            },
         )
         body = self._decode(response)
-        files = _dig(body, "result", "files") or _dig(body, "files")
+        files = _envelope(body).get("files")
         if not isinstance(files, list) or not files:
             raise YouCamError("File API response did not contain an upload target")
 
@@ -327,7 +338,7 @@ class YouCamClient:
 
         response = await self._request("POST", task_endpoint_url, json=payload)
         body = self._decode(response)
-        task_id = _dig(body, "result", "task_id") or _dig(body, "task_id")
+        task_id = _envelope(body).get("task_id")
         if not isinstance(task_id, (str, int)) or task_id == "":
             raise YouCamError("Task creation response did not contain a task id")
         return str(task_id)
@@ -338,12 +349,16 @@ class YouCamClient:
         response = await self._request(
             "GET", f"{task_endpoint_url}?task_id={task_id}", task_id=task_id
         )
-        body = self._decode(response)
-        result = body.get("result") if isinstance(body, dict) else None
-        return result if isinstance(result, dict) else (body if isinstance(body, dict) else {})
+        return _envelope(self._decode(response))
 
-    async def poll_task(self, task_endpoint_url: str, task_id: str) -> dict[str, Any]:
+    async def poll_task(
+        self, task_endpoint_url: str, task_id: str, *, path_param: bool = False
+    ) -> dict[str, Any]:
         """Poll a task until it reaches a terminal state or the timeout elapses.
+
+        ``path_param=True`` fetches status as ``{url}/{task_id}`` (v2.0 cloth);
+        the default uses ``{url}?task_id=`` (v1.0 skin). Status is read from
+        ``status`` or ``task_status``.
 
         Returns the terminal ``result`` object on success; raises
         :class:`PollingTimeoutError` on timeout and a typed error if the task
@@ -355,16 +370,15 @@ class YouCamClient:
         deadline = time.monotonic() + settings.youcam_poll_timeout_seconds
         polls = 0
 
+        status_url = (
+            f"{task_endpoint_url}/{task_id}" if path_param
+            else f"{task_endpoint_url}?task_id={task_id}"
+        )
+
         while True:
-            response = await self._request(
-                "GET",
-                f"{task_endpoint_url}?task_id={task_id}",
-                task_id=task_id,
-            )
-            body = self._decode(response)
-            result = body.get("result") if isinstance(body, dict) else None
-            result = result if isinstance(result, dict) else body
-            status = str(result.get("status", "")).lower()
+            response = await self._request("GET", status_url, task_id=task_id)
+            result = _envelope(self._decode(response))
+            status = str(result.get("status") or result.get("task_status") or "").lower()
             polls += 1
 
             logger.info(
@@ -395,6 +409,12 @@ class YouCamClient:
         response = await self._request("GET", url, authenticated=False)
         return self._decode(response)
 
+    async def download_bytes(self, url: str) -> bytes:
+        """Download a binary result artifact (e.g. a result ZIP) from a URL."""
+
+        response = await self._request("GET", url, authenticated=False)
+        return response.content
+
 
 def _dig(obj: Any, *keys: str) -> Any:
     """Safely walk nested dict keys, returning ``None`` on any miss."""
@@ -405,3 +425,19 @@ def _dig(obj: Any, *keys: str) -> Any:
             return None
         current = current.get(key)
     return current
+
+
+def _envelope(body: Any) -> dict[str, Any]:
+    """Return a YouCam response's inner payload.
+
+    YouCam wraps successful payloads in ``result`` (v1.0 endpoints) or ``data``
+    (v2.0 endpoints); this normalises both so parsing is wrapper-agnostic.
+    """
+
+    if isinstance(body, dict):
+        for key in ("result", "data"):
+            inner = body.get(key)
+            if isinstance(inner, dict):
+                return inner
+        return body
+    return {}

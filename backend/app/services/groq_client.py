@@ -28,6 +28,9 @@ class GroqChatModel:
             model=settings.groq_model,
             api_key=settings.groq_api_key or None,
             temperature=0.4,
+            # Auto-retry (honoring Groq's Retry-After) so transient 429/TPM
+            # bursts under concurrency degrade to a retry, not a 500.
+            max_retries=3,
         )
 
     @staticmethod

@@ -22,7 +22,10 @@ class RecommendationSet(APIModel):
     summary: str = ""
     skincare: list[ProductRecommendation] = Field(default_factory=list)
     outfit: list[ProductRecommendation] = Field(default_factory=list)
-    colors: list[str] = Field(default_factory=list)
+    colors: list[str] = Field(
+        default_factory=list,
+        description="A flat array of color name strings, e.g. ['olive','navy']. Not an object.",
+    )
     shopping: list[ProductRecommendation] = Field(default_factory=list)
 
 

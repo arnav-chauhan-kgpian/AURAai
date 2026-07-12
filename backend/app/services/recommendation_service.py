@@ -36,9 +36,16 @@ class RecommendationService:
         )
         prompt = self._render_prompt(context)
 
-        result = await self._llm.structured(
-            system=system, prompt=prompt, schema=RecommendationSet
-        )
+        try:
+            result = await self._llm.structured(
+                system=system, prompt=prompt, schema=RecommendationSet
+            )
+        except Exception as exc:  # noqa: BLE001 - never fail the turn on a model schema deviation
+            logger.warning(
+                "recommendation.structured_failed", intent=context.intent, error=str(exc)
+            )
+            return self._fallback(context)
+
         logger.info(
             "recommendation.built",
             intent=context.intent,
@@ -48,6 +55,17 @@ class RecommendationService:
             outfit=len(result.value.outfit),
         )
         return result.value
+
+    @staticmethod
+    def _fallback(context: RecommendationContext) -> RecommendationSet:
+        """A safe, palette-grounded result when structured generation fails."""
+
+        colors = list(context.color_palette.recommended_colors[:6]) if context.color_palette else []
+        summary = (
+            "Here's a starting set based on your color palette — ask me for a deeper "
+            "skincare routine or a full outfit anytime."
+        )
+        return RecommendationSet(summary=summary, colors=colors)
 
     @staticmethod
     def _render_prompt(context: RecommendationContext) -> str:

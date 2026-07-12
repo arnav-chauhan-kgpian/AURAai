@@ -39,7 +39,7 @@ class UploadService:
         """
 
         target = await self._client.request_upload_target(
-            file_endpoint_url, file_name, content_type
+            file_endpoint_url, file_name, content_type, len(content)
         )
         await self._client.upload_binary(target, content, content_type)
 

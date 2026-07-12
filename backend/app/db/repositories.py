@@ -23,6 +23,21 @@ def new_id() -> str:
     return uuid.uuid4().hex
 
 
+class UserRepository:
+    """Upsert of the `users` parent row (required by FK-constrained tables)."""
+
+    def __init__(self, supabase: SupabaseClient) -> None:
+        self._db = supabase
+
+    async def ensure(self, user_id: str, org_id: str, email: str | None = None) -> None:
+        def _w() -> None:
+            self._db.table("users").upsert(
+                {"id": user_id, "org_id": org_id, "email": email}, on_conflict="id"
+            ).execute()
+
+        await asyncio.to_thread(_w)
+
+
 class SessionRepository:
     """CRUD for conversation `sessions`."""
 

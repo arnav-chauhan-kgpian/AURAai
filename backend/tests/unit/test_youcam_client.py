@@ -44,7 +44,7 @@ async def test_request_upload_target_and_upload_binary(youcam) -> None:
     client, settings = youcam(handler)
 
     target = await client.request_upload_target(
-        settings.youcam_file_skin_url, "photo.jpg", "image/jpeg"
+        settings.youcam_file_skin_url, "photo.jpg", "image/jpeg", 2048
     )
     assert target.file_id == "FILE-1"
     assert target.method == "PUT"

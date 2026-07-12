@@ -13,7 +13,7 @@ from app.auth.context import AuthContext
 from app.config.config import Settings
 from app.core.exceptions import ForbiddenError
 from app.core.logging import get_logger
-from app.db.repositories import AuditRepository, SessionRepository, new_id
+from app.db.repositories import AuditRepository, SessionRepository, UserRepository, new_id
 from app.db.supabase import SupabaseClient
 
 logger = get_logger(__name__)
@@ -25,6 +25,7 @@ class SessionService:
     def __init__(self, settings: Settings, supabase: SupabaseClient | None) -> None:
         self._settings = settings
         self._sessions = SessionRepository(supabase) if supabase is not None else None
+        self._users = UserRepository(supabase) if supabase is not None else None
 
     async def resolve(self, auth: AuthContext, requested_session_id: str | None) -> str:
         """Return a session id the caller is authorized to use."""
@@ -34,6 +35,9 @@ class SessionService:
             if self._settings.is_production:
                 raise ForbiddenError("Session store unavailable")
             return requested_session_id or new_id()
+
+        # Ensure the parent `users` row exists (FK for sessions and others).
+        await self._ensure_user(auth)
 
         if requested_session_id:
             row = await self._sessions.get(requested_session_id)
@@ -52,6 +56,10 @@ class SessionService:
             return requested_session_id
 
         return await self._sessions.create(auth.user_id, auth.org_id, auth.clerk_session_id)
+
+    async def _ensure_user(self, auth: AuthContext) -> None:
+        if self._users is not None:
+            await self._users.ensure(auth.user_id, auth.org_id, auth.email)
 
 
 class AuditLogger:

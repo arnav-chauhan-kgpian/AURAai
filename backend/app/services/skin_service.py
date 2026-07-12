@@ -6,6 +6,9 @@ domain schemas. Endpoints and agent tools depend on this service rather than
 touching the provider directly.
 """
 
+import io
+import json
+import zipfile
 from typing import Any
 
 from app.config.config import Settings
@@ -18,21 +21,22 @@ from app.utils.parsing import IMAGE_EXTENSIONS, collect_urls, url_stem
 logger = get_logger(__name__)
 
 # Default set of skin concerns requested from the engine. Overridable per call.
+# Valid YouCam HD skin-analysis actions (verified against the live API).
 DEFAULT_SKIN_CONCERNS: tuple[str, ...] = (
-    "wrinkle",
-    "pore",
-    "spot",
-    "texture",
-    "acne",
-    "dark_circle",
-    "eye_bag",
-    "radiance",
-    "oiliness",
-    "moisture",
-    "redness",
-    "firmness",
-    "age_spot",
-    "droopy_eyelid",
+    "hd_wrinkle",
+    "hd_pore",
+    "hd_texture",
+    "hd_acne",
+    "hd_oiliness",
+    "hd_moisture",
+    "hd_dark_circle",
+    "hd_eye_bag",
+    "hd_radiance",
+    "hd_redness",
+    "hd_age_spot",
+    "hd_firmness",
+    "hd_droopy_upper_eyelid",
+    "hd_droopy_lower_eyelid",
 )
 
 
@@ -66,7 +70,7 @@ class SkinService:
             "request_id": 0,
             "payload": {
                 "file_sets": {"src_ids": [file_id]},
-                "dst_actions": actions,
+                "actions": [{"id": 0, "dst_actions": actions}],
             },
         }
         return await self._client.create_task(self._settings.youcam_task_skin_url, payload)
@@ -101,19 +105,30 @@ class SkinService:
         """
 
         urls = collect_urls(result)
-        score_urls = [u for u in urls if ".json" in u.lower()]
-        image_urls = [u for u in urls if any(ext in u.lower() for ext in IMAGE_EXTENSIONS)]
-
         scores: list[SkinScore] = []
-        for url in score_urls:
-            try:
-                document = await self._client.download_json(url)
-            except Exception:  # noqa: BLE001 - a bad artifact must not fail the whole run
-                logger.warning("skin.result.score_download_failed", task_id=task_id, url=url)
-                continue
-            scores.extend(_parse_scores(document))
+        overlays: list[OverlayImage] = []
 
-        overlays = [OverlayImage(concern=url_stem(u), url=u) for u in image_urls]
+        # Live YouCam delivers the result as a ZIP containing `score_info.json`
+        # plus per-concern mask PNGs.
+        zip_urls = [u for u in urls if ".zip" in u.lower()]
+        if zip_urls:
+            try:
+                blob = await self._client.download_bytes(zip_urls[0])
+                scores = _parse_skin_zip(blob)
+            except Exception:  # noqa: BLE001 - a bad artifact must not fail the whole run
+                logger.warning("skin.result.zip_parse_failed", task_id=task_id)
+        else:
+            # Fallback: loose JSON/image artifacts (older/alternate shapes).
+            for url in (u for u in urls if ".json" in u.lower()):
+                try:
+                    scores.extend(_parse_scores(await self._client.download_json(url)))
+                except Exception:  # noqa: BLE001
+                    logger.warning("skin.result.score_download_failed", task_id=task_id, url=url)
+            overlays = [
+                OverlayImage(concern=url_stem(u), url=u)
+                for u in urls
+                if any(ext in u.lower() for ext in IMAGE_EXTENSIONS)
+            ]
 
         logger.info(
             "skin.result.parsed",
@@ -124,6 +139,37 @@ class SkinService:
         return SkinAnalysisResponse(
             task_id=task_id, scores=scores, overlays=overlays, raw=result
         )
+
+
+def _parse_skin_zip(blob: bytes) -> list[SkinScore]:
+    """Parse `score_info.json` out of a YouCam skin-analysis result ZIP.
+
+    The archive maps each ``hd_<concern>`` to ``{raw_score, ui_score,
+    output_mask_name}``. The ``hd_`` prefix is stripped for display.
+    """
+
+    scores: list[SkinScore] = []
+    with zipfile.ZipFile(io.BytesIO(blob)) as archive:
+        name = next(
+            (n for n in archive.namelist() if n.lower().endswith("score_info.json")), None
+        )
+        if not name:
+            return scores
+        info = json.loads(archive.read(name))
+
+    if isinstance(info, dict):
+        for concern, value in info.items():
+            if not isinstance(value, dict):
+                continue
+            raw = _coerce_float(value.get("raw_score"))
+            ui = _coerce_float(value.get("ui_score"))
+            if raw is None and ui is None:
+                continue
+            label = concern[3:] if concern.startswith("hd_") else concern
+            scores.append(
+                SkinScore(concern=label, raw_score=raw or ui or 0.0, ui_score=ui or raw or 0.0)
+            )
+    return scores
 
 
 def _parse_scores(document: Any) -> list[SkinScore]:

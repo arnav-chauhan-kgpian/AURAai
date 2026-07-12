@@ -59,30 +59,23 @@ class VirtualTryOnService:
     ) -> str:
         """Create an apparel try-on task and return its ``task_id``."""
 
-        payload = {
-            "request_id": 0,
-            "payload": {
-                "file_sets": {
-                    "src_ids": [user_file_id],
-                    "ref_ids": [clothing_file_id],
-                },
-                "actions": [
-                    {
-                        "id": 0,
-                        "params": {
-                            "garment_category": garment_category,
-                            "change_shoes": change_shoes,
-                        },
-                    }
-                ],
-            },
+        # The v2.0 cloth try-on task takes a flat payload with the uploaded
+        # file ids and garment category (verified against the live API).
+        payload: dict[str, Any] = {
+            "src_file_id": user_file_id,
+            "ref_file_id": clothing_file_id,
+            "garment_category": garment_category,
         }
+        if change_shoes:
+            payload["change_shoes"] = change_shoes
         return await self._client.create_task(self._settings.youcam_task_cloth_url, payload)
 
     async def poll_tryon(self, task_id: str) -> dict[str, Any]:
         """Poll a try-on task until it reaches a terminal state."""
 
-        return await self._client.poll_task(self._settings.youcam_task_cloth_url, task_id)
+        return await self._client.poll_task(
+            self._settings.youcam_task_cloth_url, task_id, path_param=True
+        )
 
     async def generate_tryon(
         self,
