@@ -11,16 +11,37 @@ optimized, non-root Docker images with health checks.
 
 ## Railway (recommended)
 
-The repo includes [`railway.json`](railway.json) for the backend service
-(Dockerfile build, health check at `/api/v1/health`, restart-on-failure).
+**Two services from one repo**, plus external managed data stores (Supabase,
+Upstash Redis). Config-as-code lives in two files:
 
-1. **Backend service** → deploy from `docker/Dockerfile.backend`. Set all backend
-   env vars. Railway injects `$PORT`; the start command honors it.
-2. **Frontend service** → deploy from `docker/Dockerfile.frontend`. Set
-   `NEXT_PUBLIC_*` vars (API base URL, Clerk publishable key).
-3. **Redis** → add the Railway Redis plugin; set `REDIS_URL`.
-4. Point the frontend's `NEXT_PUBLIC_API_BASE_URL` at the backend service URL and
-   add that origin to `CORS_ORIGINS` and `CLERK_AUTHORIZED_PARTIES`.
+- [`railway.json`](railway.json) — **backend** (default config file). Dockerfile
+  build, health check at `/health`, restart-on-failure, honors `$PORT`.
+- [`railway.frontend.json`](railway.frontend.json) — **frontend**. Set this as
+  the *Config-as-code file path* in the frontend service's Settings.
+
+### Steps
+
+1. `railway login` (one-time, opens a browser).
+2. `railway init` → create/select a project.
+3. **Backend service** (uses `railway.json`) → set all backend env vars
+   (see below). Railway injects `$PORT`.
+4. **Frontend service** → in Settings, set *Config file* to
+   `railway.frontend.json`. The `NEXT_PUBLIC_*` vars must be present as
+   **service variables** so Railway passes them as Docker **build args** (Next.js
+   inlines them at build time — runtime-only values would be ignored).
+5. **Redis** → use Upstash (set `REDIS_URL=rediss://…`) or add the Railway Redis
+   plugin.
+6. After the backend gets a public URL, set the frontend's
+   `NEXT_PUBLIC_API_BASE_URL` to it, and add the frontend origin to the backend's
+   `CORS_ORIGINS` and `CLERK_AUTHORIZED_PARTIES`. Redeploy the frontend so the
+   new API URL is baked in.
+
+### Deploy from the CLI (monorepo, per service)
+
+```bash
+railway up --service backend            # builds docker/Dockerfile.backend
+railway up --service frontend -c railway.frontend.json
+```
 
 ## Docker Compose (self-hosted)
 

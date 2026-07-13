@@ -15,6 +15,19 @@ WORKDIR /app
 
 ENV NEXT_TELEMETRY_DISABLED=1
 
+# Next.js inlines NEXT_PUBLIC_* at BUILD time, so they must be present here (not
+# only at runtime). Railway passes matching service variables as build args.
+ARG NEXT_PUBLIC_API_BASE_URL
+ARG NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+ARG NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
+ARG NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
+ARG NEXT_PUBLIC_USE_MOCK=false
+ENV NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL \
+    NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=$NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY \
+    NEXT_PUBLIC_CLERK_SIGN_IN_URL=$NEXT_PUBLIC_CLERK_SIGN_IN_URL \
+    NEXT_PUBLIC_CLERK_SIGN_UP_URL=$NEXT_PUBLIC_CLERK_SIGN_UP_URL \
+    NEXT_PUBLIC_USE_MOCK=$NEXT_PUBLIC_USE_MOCK
+
 COPY --from=deps /app/node_modules ./node_modules
 COPY frontend/ ./
 RUN npm run build
@@ -36,9 +49,12 @@ COPY --from=builder /app/package.json ./package.json
 
 USER nextjs
 
+# Platforms (Railway) inject a dynamic $PORT; `next start` honors it, default 3000.
+ENV PORT=3000
 EXPOSE 3000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-  CMD ["node", "-e", "require('http').get('http://localhost:3000/',r=>process.exit(r.statusCode<500?0:1)).on('error',()=>process.exit(1))"]
+  CMD ["node", "-e", "require('http').get('http://localhost:'+(process.env.PORT||3000)+'/',r=>process.exit(r.statusCode<500?0:1)).on('error',()=>process.exit(1))"]
 
-CMD ["npm", "run", "start"]
+# Shell form so ${PORT} expands at runtime.
+CMD npm run start -- -p ${PORT:-3000}

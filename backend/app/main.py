@@ -122,6 +122,11 @@ def create_app() -> FastAPI:
     init_observability(app, settings)
 
     app.include_router(api_router, prefix=settings.api_v1_prefix)
+    # Root-level liveness/readiness aliases so platform probes and uptime checks
+    # can hit /health and /ready directly (in addition to the versioned paths).
+    from app.api.v1.endpoints import health
+
+    app.include_router(health.router, include_in_schema=False)
 
     return app
 
