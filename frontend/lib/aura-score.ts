@@ -8,6 +8,18 @@
  */
 import { clamp } from "@/lib/utils";
 import type { SessionResults } from "@/lib/store";
+import type { SkinScore } from "@/types/api";
+
+/**
+ * A 0–100 skin-health number for a single scan (higher = healthier), the same
+ * inverse-severity basis the Aura Score uses. Shared by the progress-over-time
+ * chart so a scan's dot matches the hero metric.
+ */
+export function skinHealthFromScores(scores: SkinScore[]): number {
+  if (scores.length === 0) return 0;
+  const avg = scores.reduce((sum, s) => sum + s.ui_score, 0) / scores.length;
+  return Math.round(clamp(100 - avg * 0.9, 20, 99));
+}
 
 export interface AuraScore {
   overall: number;

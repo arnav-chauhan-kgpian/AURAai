@@ -9,7 +9,12 @@ import { apiJson } from "@/lib/api-client";
 import { getAuthToken } from "@/lib/auth-token";
 import { env } from "@/lib/env";
 import { MOCK_CHAT_RESPONSE, mockStream } from "@/lib/mock";
-import type { ChatRequestInput, ChatResponse, StreamEvent } from "@/types/api";
+import type {
+  ChatRequestInput,
+  ChatResponse,
+  HistoryResponse,
+  StreamEvent,
+} from "@/types/api";
 
 function toFormData(input: ChatRequestInput): FormData {
   const form = new FormData();
@@ -154,6 +159,19 @@ export async function deleteAccountData(): Promise<boolean> {
     return true;
   } catch {
     return false;
+  }
+}
+
+/** The signed-in user's persisted scans, try-ons and recommendations. */
+export async function fetchHistory(): Promise<HistoryResponse> {
+  const empty: HistoryResponse = { scans: [], try_ons: [], recommendations: [] };
+  if (env.useMock) return empty;
+  try {
+    return await apiJson<HistoryResponse>("/api/v1/history", {
+      headers: await bearerHeaders(),
+    });
+  } catch {
+    return empty;
   }
 }
 

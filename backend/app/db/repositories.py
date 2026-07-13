@@ -89,6 +89,45 @@ class AuditRepository:
         await asyncio.to_thread(_w)
 
 
+class ConversationRepository:
+    """Append conversation turns for history and continuity."""
+
+    def __init__(self, supabase: SupabaseClient) -> None:
+        self._db = supabase
+
+    async def add(
+        self, *, session_id: str, user_id: str, org_id: str, role: str, content: str
+    ) -> None:
+        def _w() -> None:
+            self._db.table("conversations").insert(
+                {
+                    "id": new_id(),
+                    "session_id": session_id,
+                    "user_id": user_id,
+                    "org_id": org_id,
+                    "role": role,
+                    "content": content,
+                }
+            ).execute()
+
+        await asyncio.to_thread(_w)
+
+    async def list_for_session(self, session_id: str, limit: int = 50) -> list[dict[str, Any]]:
+        def _q() -> list[dict[str, Any]]:
+            resp = (
+                self._db.table("conversations")
+                .select("role, content, created_at")
+                .eq("session_id", session_id)
+                .is_("deleted_at", "null")
+                .order("created_at", desc=False)
+                .limit(limit)
+                .execute()
+            )
+            return resp.data or []
+
+        return await asyncio.to_thread(_q)
+
+
 class ScanRepository:
     """`skin_scans` records (metadata only — never raw biometric pixels)."""
 
@@ -104,6 +143,21 @@ class ScanRepository:
         await asyncio.to_thread(_w)
         return scan_id
 
+    async def list_for_user(self, user_id: str, limit: int = 30) -> list[dict[str, Any]]:
+        def _q() -> list[dict[str, Any]]:
+            resp = (
+                self._db.table("skin_scans")
+                .select("id, task_id, scores, overlays, created_at")
+                .eq("user_id", user_id)
+                .is_("deleted_at", "null")
+                .order("created_at", desc=True)
+                .limit(limit)
+                .execute()
+            )
+            return resp.data or []
+
+        return await asyncio.to_thread(_q)
+
     async def soft_delete_for_user(self, user_id: str) -> None:
         def _w() -> None:
             self._db.table("skin_scans").update({"deleted_at": "now()"}).eq(
@@ -111,3 +165,65 @@ class ScanRepository:
             ).execute()
 
         await asyncio.to_thread(_w)
+
+
+class TryOnRepository:
+    """`try_on_jobs` records for virtual try-on history."""
+
+    def __init__(self, supabase: SupabaseClient) -> None:
+        self._db = supabase
+
+    async def create(self, record: dict[str, Any]) -> str:
+        job_id = new_id()
+
+        def _w() -> None:
+            self._db.table("try_on_jobs").insert({"id": job_id, **record}).execute()
+
+        await asyncio.to_thread(_w)
+        return job_id
+
+    async def list_for_user(self, user_id: str, limit: int = 30) -> list[dict[str, Any]]:
+        def _q() -> list[dict[str, Any]]:
+            resp = (
+                self._db.table("try_on_jobs")
+                .select("id, task_id, status, output_images, created_at")
+                .eq("user_id", user_id)
+                .is_("deleted_at", "null")
+                .order("created_at", desc=True)
+                .limit(limit)
+                .execute()
+            )
+            return resp.data or []
+
+        return await asyncio.to_thread(_q)
+
+
+class RecommendationRepository:
+    """`recommendations` snapshots per turn."""
+
+    def __init__(self, supabase: SupabaseClient) -> None:
+        self._db = supabase
+
+    async def create(self, record: dict[str, Any]) -> str:
+        rec_id = new_id()
+
+        def _w() -> None:
+            self._db.table("recommendations").insert({"id": rec_id, **record}).execute()
+
+        await asyncio.to_thread(_w)
+        return rec_id
+
+    async def list_for_user(self, user_id: str, limit: int = 20) -> list[dict[str, Any]]:
+        def _q() -> list[dict[str, Any]]:
+            resp = (
+                self._db.table("recommendations")
+                .select("id, payload, created_at")
+                .eq("user_id", user_id)
+                .is_("deleted_at", "null")
+                .order("created_at", desc=True)
+                .limit(limit)
+                .execute()
+            )
+            return resp.data or []
+
+        return await asyncio.to_thread(_q)

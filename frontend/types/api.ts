@@ -33,6 +33,36 @@ export interface TryOnResponse {
   raw?: Record<string, unknown>;
 }
 
+// --- History (persisted, per-user) -----------------------------------------
+
+export interface HistoryScan {
+  id: string;
+  task_id: string | null;
+  scores: SkinScore[];
+  overlays: OverlayImage[];
+  created_at: string;
+}
+
+export interface HistoryTryOn {
+  id: string;
+  task_id: string | null;
+  status: string;
+  output_images: string[];
+  created_at: string;
+}
+
+export interface HistoryRecommendation {
+  id: string;
+  payload: RecommendationSet;
+  created_at: string;
+}
+
+export interface HistoryResponse {
+  scans: HistoryScan[];
+  try_ons: HistoryTryOn[];
+  recommendations: HistoryRecommendation[];
+}
+
 // --- Color -----------------------------------------------------------------
 
 export interface ColorPalette {

@@ -7,7 +7,7 @@ consent, and rate limiting are all enforced here before the agent runs.
 
 import json
 
-from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Request, UploadFile
 from fastapi.responses import StreamingResponse
 
 from app.auth.context import RequestContext
@@ -20,11 +20,19 @@ from app.schemas.chat import ChatResponse
 from app.security.rate_limit import RateLimiter
 from app.security.sanitize import sanitize_text
 from app.security.uploads import scan_for_viruses, validate_image_upload
+from app.services.history_service import HistoryService
 from app.services.privacy_service import PrivacyService
 
 router = APIRouter()
 _rate_limit = RateLimiter()
 logger = get_logger(__name__)
+
+
+def _history_service(request: Request) -> HistoryService:
+    return HistoryService(
+        getattr(request.app.state, "supabase", None),
+        getattr(request.app.state, "object_store", None),
+    )
 
 
 async def _validated_image(
@@ -83,6 +91,7 @@ async def chat(
     request: Request,
     ctx: RequestContextDep,
     agent: AuraAgentDep,
+    background: BackgroundTasks,
     message: str = Form(...),
     face_image: UploadFile | None = File(default=None),
     garment_image: UploadFile | None = File(default=None),
@@ -95,6 +104,14 @@ async def chat(
 
     response = await agent.run(session_id=ctx.session_id, message=clean_message, images=images)
 
+    # Persist the rich turn after the response is sent, off the hot path.
+    background.add_task(
+        _history_service(request).persist_turn,
+        ctx,
+        message=clean_message,
+        response=response,
+        images=images,
+    )
     await request.app.state.audit.record(
         user_id=ctx.user_id,
         org_id=ctx.org_id,
@@ -121,12 +138,26 @@ async def chat_stream(
 
     clean_message = sanitize_text(message, field="message")
     images = await _build_images(request, ctx, face_image, garment_image, garment_category)
+    history = _history_service(request)
 
     async def event_stream():
+        final_data: dict | None = None
         async for event in agent.stream(
             session_id=ctx.session_id, message=clean_message, images=images
         ):
+            if event.type == "final":
+                final_data = event.data
             yield f"data: {json.dumps(event.model_dump())}\n\n"
+
+        # Persist once the reply is fully streamed (client already has it).
+        if final_data is not None:
+            try:
+                response = ChatResponse(**final_data)
+                await history.persist_turn(
+                    ctx, message=clean_message, response=response, images=images
+                )
+            except Exception as exc:  # noqa: BLE001 - never break stream teardown
+                logger.warning("chat.stream_persist_failed", error=str(exc))
 
     return StreamingResponse(
         event_stream(),

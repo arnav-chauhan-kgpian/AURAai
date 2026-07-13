@@ -11,7 +11,12 @@ import { NextResponse } from "next/server";
 
 const clerkEnabled = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
 
-const isProtected = createRouteMatcher(["/chat(.*)", "/dashboard(.*)", "/settings(.*)"]);
+const isProtected = createRouteMatcher([
+  "/chat(.*)",
+  "/dashboard(.*)",
+  "/history(.*)",
+  "/settings(.*)",
+]);
 
 const guarded = clerkMiddleware(async (auth, req) => {
   if (!isProtected(req)) return;

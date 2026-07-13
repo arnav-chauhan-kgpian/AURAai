@@ -14,6 +14,7 @@ export const NAV_LINKS = [
   { href: "/", label: "Home" },
   { href: "/chat", label: "Chat" },
   { href: "/dashboard", label: "Dashboard" },
+  { href: "/history", label: "History" },
   { href: "/settings", label: "Settings" },
 ] as const;
 
