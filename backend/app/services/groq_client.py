@@ -6,6 +6,7 @@ and token streaming. Interchangeable with the Gemini implementation — the agen
 planner and recommendation service are provider-agnostic.
 """
 
+import asyncio
 from collections.abc import AsyncIterator
 
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -28,10 +29,15 @@ class GroqChatModel:
             model=settings.groq_model,
             api_key=settings.groq_api_key or None,
             temperature=0.4,
+            # Cap output so no single call blows the token budget.
+            max_tokens=settings.groq_max_tokens,
             # Auto-retry (honoring Groq's Retry-After) so transient 429/TPM
             # bursts under concurrency degrade to a retry, not a 500.
             max_retries=3,
         )
+        # Gate concurrent calls so bursts queue instead of hitting the TPM
+        # window all at once (a process-wide limit — the model is a singleton).
+        self._sem = asyncio.Semaphore(settings.groq_max_concurrency)
 
     @staticmethod
     def _messages(system: str, prompt: str) -> list[object]:
@@ -43,7 +49,8 @@ class GroqChatModel:
         return TokenUsage.from_metadata(metadata if isinstance(metadata, dict) else None)
 
     async def complete(self, *, system: str, prompt: str) -> LLMResult:
-        message = await self._model.ainvoke(self._messages(system, prompt))
+        async with self._sem:
+            message = await self._model.ainvoke(self._messages(system, prompt))
         usage = self._usage(message)
         logger.info("groq.complete", model=self.model_name, total_tokens=usage.total_tokens)
         return LLMResult(text=str(message.content), usage=usage)
@@ -52,7 +59,8 @@ class GroqChatModel:
         self, *, system: str, prompt: str, schema: type[T]
     ) -> StructuredResult[T]:
         runnable = self._model.with_structured_output(schema, include_raw=True)
-        output = await runnable.ainvoke(self._messages(system, prompt))
+        async with self._sem:
+            output = await runnable.ainvoke(self._messages(system, prompt))
         parsed: BaseModel = output["parsed"]
         usage = self._usage(output.get("raw"))
         logger.info(
@@ -64,7 +72,8 @@ class GroqChatModel:
         return StructuredResult(value=parsed, usage=usage)  # type: ignore[arg-type]
 
     async def stream(self, *, system: str, prompt: str) -> AsyncIterator[str]:
-        async for chunk in self._model.astream(self._messages(system, prompt)):
-            content = getattr(chunk, "content", "")
-            if content:
-                yield str(content)
+        async with self._sem:
+            async for chunk in self._model.astream(self._messages(system, prompt)):
+                content = getattr(chunk, "content", "")
+                if content:
+                    yield str(content)

@@ -75,6 +75,10 @@ class Settings(BaseSettings):
     # Groq
     groq_api_key: str = ""
     groq_model: str = "llama-3.3-70b-versatile"
+    # Cap output tokens and limit concurrent Groq calls to live within a
+    # constrained TPM (tokens-per-minute) tier without 429 storms.
+    groq_max_tokens: int = 1024
+    groq_max_concurrency: int = 2
 
     # Google Gemini
     gemini_api_key: str = ""

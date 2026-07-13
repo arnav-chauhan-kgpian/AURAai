@@ -49,3 +49,7 @@ Thumbs.db
 # Audit evidence (face image + raw API responses — not for the repo)
 # ---------------------------------------------------------------------------
 audit-evidence/
+
+# Local dev logs
+*.log
+_srv*.log

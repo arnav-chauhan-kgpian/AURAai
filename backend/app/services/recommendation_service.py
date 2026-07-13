@@ -77,9 +77,11 @@ class RecommendationService:
             if context.color_palette
             else None,
             "fitzpatrick_type": context.fitzpatrick_type,
-            "try_on_images": context.try_on_images,
+            # Only whether a try-on happened — the signed URLs are long and add
+            # no signal for generating recommendations.
+            "has_try_on": bool(context.try_on_images),
             "preferred_style": context.preferred_style,
-            "recent_history": context.history,
+            "recent_history": context.history[-3:],
         }
         return (
             "Generate recommendations for this user using only the context below.\n"
