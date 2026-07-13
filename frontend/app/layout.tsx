@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 
+import { ConsentGate } from "@/components/consent/consent-gate";
 import { Onboarding } from "@/components/onboarding/onboarding";
 import { SiteHeader } from "@/components/layout/site-header";
 import { Providers } from "@/app/providers";
@@ -29,6 +30,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <div className="flex-1">{children}</div>
           </div>
           <Onboarding />
+          <ConsentGate />
         </Providers>
       </body>
     </html>

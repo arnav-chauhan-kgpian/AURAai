@@ -13,6 +13,7 @@ export function Composer() {
   const [text, setText] = useState("");
   const [face, setFace] = useState<File | null>(null);
   const [garment, setGarment] = useState<File | null>(null);
+  const [category, setCategory] = useState("upper_body");
   const status = useSessionStore((s) => s.status);
   const { send } = useChatStream();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -32,7 +33,12 @@ export function Composer() {
 
   const submit = () => {
     if (!canSend) return;
-    void send({ message: text.trim(), faceImage: face, garmentImage: garment });
+    void send({
+      message: text.trim(),
+      faceImage: face,
+      garmentImage: garment,
+      garmentCategory: category,
+    });
     setText("");
     setFace(null);
     setGarment(null);
@@ -56,6 +62,19 @@ export function Composer() {
           onFile={setGarment}
           onClear={() => setGarment(null)}
         />
+        {garment && (
+          <select
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            aria-label="Garment type"
+            className="rounded-full border border-border bg-background px-3 py-1.5 text-xs font-medium focus-visible:ring-focus"
+          >
+            <option value="upper_body">Top / Jacket</option>
+            <option value="lower_body">Bottoms</option>
+            <option value="dress">Dress</option>
+            <option value="full_body">Full outfit</option>
+          </select>
+        )}
         <span className="text-2xs text-muted-foreground">
           Add a <b className="font-medium text-foreground">Selfie</b> for skin analysis · add a{" "}
           <b className="font-medium text-foreground">Garment</b> too to try it on

@@ -75,6 +75,9 @@ class Settings(BaseSettings):
     # Groq
     groq_api_key: str = ""
     groq_model: str = "llama-3.3-70b-versatile"
+    # A smaller/faster model for the frequent, low-stakes calls (intent
+    # classification + reply summary). Big model stays for recommendations.
+    groq_fast_model: str = "llama-3.1-8b-instant"
     # Cap output tokens and limit concurrent Groq calls to live within a
     # constrained TPM (tokens-per-minute) tier without 429 storms.
     groq_max_tokens: int = 1024

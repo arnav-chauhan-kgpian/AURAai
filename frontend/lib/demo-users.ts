@@ -171,6 +171,14 @@ export async function* buildDemoStream(
   await wait(650);
   yield { type: "step", data: { tools } };
 
+  // Mirror the real backend's per-tool progress so the demo timeline animates.
+  for (const tool of tools) {
+    await wait(120);
+    yield { type: "tool", data: { tool, status: "running" } };
+    await wait(360);
+    yield { type: "tool", data: { tool, status: "ok" } };
+  }
+
   for (const token of response.reply.split(/(\s+)/)) {
     await wait(16);
     yield { type: "token", data: { token } };

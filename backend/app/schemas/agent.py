@@ -55,5 +55,5 @@ class AgentImages(BaseModel):
 class AgentStreamEvent(BaseModel):
     """A single event emitted while streaming an agent run."""
 
-    type: Literal["intent", "step", "token", "final", "error"]
+    type: Literal["intent", "step", "tool", "token", "final", "error"]
     data: dict[str, object] = Field(default_factory=dict)

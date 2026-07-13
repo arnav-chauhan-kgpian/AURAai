@@ -91,18 +91,42 @@ class AuraAgent:
         executed: list[str] = []
 
         for tool in tools:
-            ctx = ToolRunContext(
-                session_id=state["session_id"],
-                message=state["message"],
-                intent=intent,
-                images=state["images"],
-                state=merged,
-            )
-            result = await tool.run(ctx)
+            result = await self._invoke_tool(tool, state, intent, merged)
             merged.update(result.updates)
             outputs[tool.name] = result.summary()
             if result.status.value == "ok":
                 executed.append(tool.name)
+
+        updates = self._finalize_tool_updates(merged, outputs, executed)
+        logger.info(
+            "agent.tools_executed",
+            intent=intent.value,
+            execution_path=list(outputs.keys()),
+            tools_succeeded=executed,
+        )
+        return updates
+
+    async def _invoke_tool(
+        self, tool: Any, state: AuraState, intent: Intent, merged: dict[str, Any]
+    ) -> Any:
+        """Run a single tool with a context bound to the running state."""
+
+        ctx = ToolRunContext(
+            session_id=state["session_id"],
+            message=state["message"],
+            intent=intent,
+            images=state["images"],
+            state=merged,
+        )
+        return await tool.run(ctx)
+
+    def _finalize_tool_updates(
+        self,
+        merged: dict[str, Any],
+        outputs: dict[str, dict[str, Any]],
+        executed: list[str],
+    ) -> dict[str, Any]:
+        """Collect executed-tool bookkeeping and surfaced domain results."""
 
         updates: dict[str, Any] = {
             "executed_tools": executed,
@@ -112,13 +136,6 @@ class AuraAgent:
         for key in _DOMAIN_KEYS:
             if merged.get(key) is not None:
                 updates[key] = merged[key]
-
-        logger.info(
-            "agent.tools_executed",
-            intent=intent.value,
-            execution_path=list(outputs.keys()),
-            tools_succeeded=executed,
-        )
         return updates
 
     async def summarize_node(self, state: AuraState) -> dict[str, Any]:
@@ -182,9 +199,29 @@ class AuraAgent:
             data={"intent": state["intent"].value, "rationale": state["intent_rationale"]},
         )
 
-        if self._registry.tools_for(state["intent"]):
-            state.update(await self.execute_tools(state))  # type: ignore[typeddict-item]
-            yield AgentStreamEvent(type="step", data={"tools": state.get("executed_tools", [])})
+        intent: Intent = state["intent"]
+        tools = self._registry.tools_for(intent)
+        if tools:
+            # Announce the plan up front so the UI can lay out the timeline, then
+            # emit a real event as each tool starts and finishes.
+            yield AgentStreamEvent(type="step", data={"tools": [t.name for t in tools]})
+            merged: dict[str, Any] = dict(state)
+            outputs: dict[str, dict[str, Any]] = {}
+            executed: list[str] = []
+            for tool in tools:
+                yield AgentStreamEvent(
+                    type="tool", data={"tool": tool.name, "status": "running"}
+                )
+                result = await self._invoke_tool(tool, state, intent, merged)
+                merged.update(result.updates)
+                outputs[tool.name] = result.summary()
+                status = result.status.value
+                if status == "ok":
+                    executed.append(tool.name)
+                yield AgentStreamEvent(
+                    type="tool", data={"tool": tool.name, "status": status}
+                )
+            state.update(self._finalize_tool_updates(merged, outputs, executed))  # type: ignore[typeddict-item]
 
         buffer: list[str] = []
         async for token in self._summarizer.stream(state):

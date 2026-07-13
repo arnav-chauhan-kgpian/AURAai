@@ -105,13 +105,23 @@ function handleEvent(event: StreamEvent, assistantId: string): void {
       const toolPhases = TOOL_ORDER.filter((phase) =>
         tools.some((tool) => TOOL_TO_PHASE[tool] === phase),
       );
+      // Lay out the planned pipeline; the real per-tool `tool` events below
+      // light each phase as the backend actually starts/finishes it.
       const next: TimelinePhase[] = [
         ...store.phases.map((p) => ({ ...p, status: "complete" as const })),
         ...toolPhases.map((id) => ({ id, status: "pending" as const })),
         { id: "done" as TimelinePhaseId, status: "pending" as const },
       ];
       store.setPhases(next);
-      animateToolPhases(toolPhases);
+      break;
+    }
+    case "tool": {
+      const tool = String(event.data.tool ?? "");
+      const phase = TOOL_TO_PHASE[tool];
+      if (phase) {
+        const status = String(event.data.status ?? "");
+        store.patchPhase(phase, status === "running" ? "active" : "complete");
+      }
       break;
     }
     case "token": {
@@ -120,6 +130,9 @@ function handleEvent(event: StreamEvent, assistantId: string): void {
     }
     case "final": {
       const data = event.data as unknown as ChatResponse;
+      if (data.session_id && data.session_id !== store.sessionId) {
+        store.setSessionId(data.session_id);
+      }
       store.setResults({
         intent: data.intent ?? null,
         skin: data.skin_analysis ?? null,
@@ -130,18 +143,12 @@ function handleEvent(event: StreamEvent, assistantId: string): void {
       if (data.reply) store.finishAssistantMessage(assistantId, data.reply);
       break;
     }
-    case "error":
-      store.appendToken(assistantId, "\n\n_The agent hit an error._");
+    case "error": {
+      const message = String(event.data.message ?? "Something went wrong. Please try again.");
+      store.appendToken(assistantId, `\n\n_${message}_`);
       break;
+    }
   }
-}
-
-/** Progressively light up each tool phase for a lifelike cadence. */
-function animateToolPhases(phases: TimelinePhaseId[]): void {
-  phases.forEach((id, index) => {
-    window.setTimeout(() => useSessionStore.getState().patchPhase(id, "active"), index * 520);
-    window.setTimeout(() => useSessionStore.getState().patchPhase(id, "complete"), index * 520 + 420);
-  });
 }
 
 function completeTimeline(): void {

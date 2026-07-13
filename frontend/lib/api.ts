@@ -43,9 +43,11 @@ export async function sendChat(input: ChatRequestInput): Promise<ChatResponse> {
 }
 
 /**
- * Stream a chat turn as SSE events. Parses `data:` frames from the POST stream;
- * on any transport failure it transparently switches to the simulated stream so
- * the timeline and chat always show live progress.
+ * Stream a chat turn as SSE events. Parses `data:` frames from the POST stream.
+ *
+ * Mock data is served ONLY in explicit demo mode (`NEXT_PUBLIC_USE_MOCK`). A
+ * real backend error surfaces the actual message (via an `error` event) rather
+ * than silently returning fake results, which would hide the real problem.
  */
 export async function* streamChat(
   input: ChatRequestInput,
@@ -64,9 +66,23 @@ export async function* streamChat(
       headers: await authHeaders(input),
       signal,
     });
-    if (!response.ok || !response.body) throw new Error("stream unavailable");
   } catch {
-    yield* mockStream(input);
+    yield {
+      type: "error",
+      data: { message: "Can't reach the server. Make sure the backend is running." },
+    };
+    return;
+  }
+
+  if (!response.ok || !response.body) {
+    let message = `The request failed (${response.status}).`;
+    try {
+      const body = await response.json();
+      message = body?.error?.message ?? message;
+    } catch {
+      /* non-JSON error body */
+    }
+    yield { type: "error", data: { message } };
     return;
   }
 
@@ -93,6 +109,51 @@ export async function* streamChat(
         /* ignore malformed frame */
       }
     }
+  }
+}
+
+/** Bearer auth headers for non-chat authenticated calls. */
+async function bearerHeaders(): Promise<Record<string, string>> {
+  const token = await getAuthToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+/** Whether the signed-in user has consented to face-image processing. */
+export async function getConsent(): Promise<boolean> {
+  if (env.useMock) return true;
+  try {
+    const res = await apiJson<{ granted?: boolean }>("/api/v1/privacy/consent", {
+      headers: await bearerHeaders(),
+      retries: 0,
+    });
+    return Boolean(res.granted);
+  } catch {
+    return false;
+  }
+}
+
+/** Record (grant/withdraw) consent to process face images. */
+export async function setConsent(granted: boolean): Promise<boolean> {
+  if (env.useMock) return granted;
+  try {
+    const res = await apiJson<{ granted?: boolean }>("/api/v1/privacy/consent", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...(await bearerHeaders()) },
+      body: JSON.stringify({ granted }),
+    });
+    return Boolean(res.granted);
+  } catch {
+    return false;
+  }
+}
+
+/** GDPR erasure of the signed-in user's data. */
+export async function deleteAccountData(): Promise<boolean> {
+  try {
+    await apiJson("/api/v1/privacy/account", { method: "DELETE", headers: await bearerHeaders() });
+    return true;
+  } catch {
+    return false;
   }
 }
 

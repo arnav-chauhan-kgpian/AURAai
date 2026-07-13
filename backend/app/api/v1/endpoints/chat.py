@@ -14,6 +14,7 @@ from app.auth.context import RequestContext
 from app.auth.dependencies import RequestContextDep, client_ip
 from app.core.dependencies import AuraAgentDep
 from app.core.exceptions import ForbiddenError
+from app.core.logging import get_logger
 from app.schemas.agent import AgentImages
 from app.schemas.chat import ChatResponse
 from app.security.rate_limit import RateLimiter
@@ -23,6 +24,7 @@ from app.services.privacy_service import PrivacyService
 
 router = APIRouter()
 _rate_limit = RateLimiter()
+logger = get_logger(__name__)
 
 
 async def _validated_image(
@@ -58,6 +60,11 @@ async def _build_images(
     garment_image: UploadFile | None,
     garment_category: str,
 ) -> AgentImages:
+    logger.info(
+        "chat.images_received",
+        face_field=face_image.filename if face_image else None,
+        garment_field=garment_image.filename if garment_image else None,
+    )
     face, face_type = await _validated_image(request, face_image)
     garment, garment_type = await _validated_image(request, garment_image)
     if face is not None:

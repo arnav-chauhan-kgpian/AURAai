@@ -85,7 +85,7 @@ export interface ChatResponse {
 
 // --- Streaming events (SSE from POST /chat/stream) -------------------------
 
-export type StreamEventType = "intent" | "step" | "token" | "final" | "error";
+export type StreamEventType = "intent" | "step" | "tool" | "token" | "final" | "error";
 
 export interface StreamEvent {
   type: StreamEventType;

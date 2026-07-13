@@ -88,14 +88,18 @@ def build_aura_agent(
     *,
     youcam_client: YouCamClient,
     llm: ChatLLM,
+    fast_llm: ChatLLM | None = None,
     redis: RedisClient | None = None,
     supabase: Any | None = None,
 ) -> AuraAgent:
     """Compose the AuraAgent with all of its collaborators.
 
     This is the one place the agent's object graph is assembled — used at startup
-    for the app and directly in tests with fakes.
+    for the app and directly in tests with fakes. ``fast_llm`` (if given) powers
+    the planner and summarizer; ``llm`` powers recommendations.
     """
+
+    quick = fast_llm or llm
 
     uploads = UploadService(settings, youcam_client)
     skin_service = SkinService(settings, youcam_client, uploads)
@@ -125,10 +129,10 @@ def build_aura_agent(
 
     return AuraAgent(
         settings=settings,
-        planner=Planner(llm),
+        planner=Planner(quick),
         registry=registry,
         memory_tool=ConversationMemoryTool(memory),
-        summarizer=Summarizer(llm),
+        summarizer=Summarizer(quick),
     )
 
 

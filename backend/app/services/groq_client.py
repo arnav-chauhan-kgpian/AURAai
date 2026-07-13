@@ -23,10 +23,10 @@ logger = get_logger(__name__)
 class GroqChatModel:
     """A :class:`ChatLLM` backed by Groq."""
 
-    def __init__(self, settings: Settings) -> None:
-        self.model_name = settings.groq_model
+    def __init__(self, settings: Settings, model: str | None = None) -> None:
+        self.model_name = model or settings.groq_model
         self._model = ChatGroq(
-            model=settings.groq_model,
+            model=self.model_name,
             api_key=settings.groq_api_key or None,
             temperature=0.4,
             # Cap output so no single call blows the token budget.

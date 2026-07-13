@@ -59,6 +59,7 @@ interface SessionState {
   newSession: () => void;
   clearConversation: () => void;
   setStatus: (status: SessionState["status"]) => void;
+  setSessionId: (id: string) => void;
 
   addUserMessage: (content: string, hasImage?: boolean) => void;
   startAssistantMessage: () => string;
@@ -91,6 +92,10 @@ export const useSessionStore = create<SessionState>((set) => ({
     set({ messages: [], phases: [], results: { ...EMPTY_RESULTS }, status: "idle" }),
 
   setStatus: (status) => set({ status }),
+
+  // Adopt the server-issued session id so subsequent turns reuse the same
+  // conversation (fixes cross-turn memory).
+  setSessionId: (id) => set({ sessionId: id }),
 
   addUserMessage: (content, hasImage) =>
     set((state) => ({

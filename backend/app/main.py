@@ -65,6 +65,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             settings,
             youcam_client=app.state.youcam_client,
             llm=llm,
+            fast_llm=build_llm(settings, fast=True),
             redis=app.state.redis,
             supabase=supabase,
         )
