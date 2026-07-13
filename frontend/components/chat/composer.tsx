@@ -40,23 +40,29 @@ export function Composer() {
 
   return (
     <div className="border-t border-border bg-card/40 p-3 sm:p-4">
-      {(face || garment) && (
-        <div className="mb-2 flex flex-wrap gap-2">
-          {face && <Attachment label={face.name} onRemove={() => setFace(null)} />}
-          {garment && <Attachment label={garment.name} onRemove={() => setGarment(null)} />}
-        </div>
-      )}
-      <div className="flex items-end gap-2 rounded-3xl border border-border bg-background p-2">
-        <FileButton
-          icon={<ImagePlus className="size-[18px]" />}
-          label="Attach a selfie"
+      {/* Labeled attach controls — make skin analysis + try-on discoverable. */}
+      <div className="mb-2 flex flex-wrap items-center gap-2">
+        <FilePill
+          label="Selfie"
+          icon={<ImagePlus className="size-4" />}
+          file={face}
           onFile={setFace}
+          onClear={() => setFace(null)}
         />
-        <FileButton
-          icon={<Shirt className="size-[18px]" />}
-          label="Attach a garment"
+        <FilePill
+          label="Garment"
+          icon={<Shirt className="size-4" />}
+          file={garment}
           onFile={setGarment}
+          onClear={() => setGarment(null)}
         />
+        <span className="text-2xs text-muted-foreground">
+          Add a <b className="font-medium text-foreground">Selfie</b> for skin analysis · add a{" "}
+          <b className="font-medium text-foreground">Garment</b> too to try it on
+        </span>
+      </div>
+
+      <div className="flex items-end gap-2 rounded-3xl border border-border bg-background p-2 pl-4">
         <Textarea
           ref={textareaRef}
           value={text}
@@ -89,54 +95,60 @@ export function Composer() {
   );
 }
 
-function FileButton({
-  icon,
+function FilePill({
   label,
+  icon,
+  file,
   onFile,
+  onClear,
 }: {
-  icon: React.ReactNode;
   label: string;
+  icon: React.ReactNode;
+  file: File | null;
   onFile: (file: File) => void;
+  onClear: () => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const active = file !== null;
   return (
-    <>
+    <div
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+        active
+          ? "border-primary/50 bg-primary/10 text-primary"
+          : "border-border text-muted-foreground hover:bg-secondary hover:text-foreground",
+      )}
+    >
       <button
         type="button"
-        aria-label={label}
-        title={label}
         onClick={() => inputRef.current?.click()}
-        className="grid size-9 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:ring-focus"
+        aria-label={active ? `Change ${label}` : `Add a ${label}`}
+        className="inline-flex items-center gap-1.5 rounded-full focus-visible:ring-focus"
       >
         {icon}
+        {active ? <span className="max-w-[7rem] truncate">{file!.name}</span> : label}
       </button>
+      {active && (
+        <button
+          type="button"
+          onClick={onClear}
+          aria-label={`Remove ${label}`}
+          className="grid size-4 place-items-center rounded-full hover:bg-background/60"
+        >
+          <X className="size-3" />
+        </button>
+      )}
       <input
         ref={inputRef}
         type="file"
         accept="image/*"
         className="hidden"
         onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) onFile(file);
+          const f = e.target.files?.[0];
+          if (f) onFile(f);
           e.target.value = "";
         }}
       />
-    </>
-  );
-}
-
-function Attachment({ label, onRemove }: { label: string; onRemove: () => void }) {
-  return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-secondary/60 py-1 pl-3 pr-1.5 text-xs">
-      <span className="max-w-[10rem] truncate">{label}</span>
-      <button
-        type="button"
-        onClick={onRemove}
-        aria-label={`Remove ${label}`}
-        className="grid size-4 place-items-center rounded-full hover:bg-background"
-      >
-        <X className="size-3" />
-      </button>
-    </span>
+    </div>
   );
 }

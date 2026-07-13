@@ -3,6 +3,7 @@
 import { Sparkles } from "lucide-react";
 import { useEffect, useRef } from "react";
 
+import { InlineTryOn } from "@/components/chat/inline-try-on";
 import { MessageBubble } from "@/components/chat/message-bubble";
 import { useSessionStore } from "@/lib/store";
 
@@ -46,6 +47,7 @@ export function MessageList() {
       {messages.map((message) => (
         <MessageBubble key={message.id} message={message} />
       ))}
+      <InlineTryOn />
       <div ref={bottomRef} />
     </div>
   );
