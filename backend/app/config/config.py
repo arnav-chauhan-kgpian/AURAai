@@ -5,11 +5,38 @@ Pydantic Settings. This is the single source of truth for runtime configuration
 and is consumed everywhere via the cached ``get_settings`` accessor.
 """
 
+import json
 from functools import lru_cache
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import Field, computed_field
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import Field, computed_field, field_validator
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
+
+
+def _parse_str_list(value: object) -> object:
+    """Parse a list-of-strings setting tolerantly from an env var.
+
+    Accepts a JSON array (``["a","b"]``), a comma-separated string (``a,b``), a
+    single bare value (``https://app``), or empty. This avoids a hard crash when
+    a platform env var isn't strict JSON — a very common deployment foot-gun for
+    ``CORS_ORIGINS`` and ``CLERK_AUTHORIZED_PARTIES``.
+    """
+
+    if value is None:
+        return []
+    if isinstance(value, (list, tuple)):
+        return list(value)
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return []
+        if text.startswith("["):
+            try:
+                return json.loads(text)
+            except json.JSONDecodeError:
+                pass
+        return [part.strip() for part in text.split(",") if part.strip()]
+    return value
 
 
 class Settings(BaseSettings):
@@ -31,7 +58,11 @@ class Settings(BaseSettings):
     # --- Server -----------------------------------------------------------
     host: str = "0.0.0.0"
     port: int = 8000
-    cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:3000"])
+    # NoDecode: parse the raw env string ourselves (see _parse_str_list) instead
+    # of letting pydantic-settings require strict JSON.
+    cors_origins: Annotated[list[str], NoDecode] = Field(
+        default_factory=lambda: ["http://localhost:3000"]
+    )
 
     # --- YouCam (Perfect Corp) credentials --------------------------------
     youcam_api_key: str = ""
@@ -110,7 +141,7 @@ class Settings(BaseSettings):
     clerk_issuer: str = ""
     clerk_jwks_url: str = ""
     # Authorized parties (`azp`) — your frontend origins.
-    clerk_authorized_parties: list[str] = Field(default_factory=list)
+    clerk_authorized_parties: Annotated[list[str], NoDecode] = Field(default_factory=list)
     jwks_cache_seconds: int = 600
 
     # --- Security ---------------------------------------------------------
@@ -141,6 +172,11 @@ class Settings(BaseSettings):
     otel_exporter_otlp_endpoint: str = ""
     otel_service_name: str = "aura-backend"
     metrics_enabled: bool = True
+
+    @field_validator("cors_origins", "clerk_authorized_parties", mode="before")
+    @classmethod
+    def _coerce_str_list(cls, value: object) -> object:
+        return _parse_str_list(value)
 
     @computed_field  # type: ignore[prop-decorator]
     @property
