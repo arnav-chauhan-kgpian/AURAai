@@ -73,10 +73,37 @@ def _init_metrics(app: FastAPI, settings: Settings) -> None:
     try:
         from prometheus_fastapi_instrumentator import Instrumentator
 
-        excluded = ["/api/v1/health", "/api/v1/ready", "/metrics"]
-        Instrumentator(excluded_handlers=excluded).instrument(app).expose(
-            app, endpoint="/metrics", include_in_schema=False
-        )
-        logger.info("observability.metrics_enabled")
+        excluded = ["/api/v1/health", "/api/v1/ready", "/health", "/ready", "/metrics"]
+        instrumentator = Instrumentator(excluded_handlers=excluded).instrument(app)
+
+        # Metrics are always collected; expose /metrics carefully. In production,
+        # only serve it when a token is configured, and require it — an
+        # unauthenticated public /metrics leaks operational internals.
+        if not settings.is_production:
+            instrumentator.expose(app, endpoint="/metrics", include_in_schema=False)
+            logger.info("observability.metrics_enabled", guarded=False)
+        elif settings.metrics_token:
+            _expose_guarded_metrics(app, settings.metrics_token)
+            logger.info("observability.metrics_enabled", guarded=True)
+        else:
+            logger.info("observability.metrics_endpoint_disabled_in_prod")
     except Exception as exc:  # noqa: BLE001
         logger.warning("observability.metrics_unavailable", error=str(exc))
+
+
+def _expose_guarded_metrics(app: FastAPI, token: str) -> None:
+    """Serve /metrics only to callers presenting the configured token."""
+
+    from fastapi import Request, Response
+    from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
+
+    @app.get("/metrics", include_in_schema=False)
+    async def metrics(request: Request) -> Response:  # pragma: no cover - thin I/O
+        header = request.headers.get("authorization", "")
+        provided = header.removeprefix("Bearer ").strip() or request.query_params.get(
+            "token", ""
+        )
+        if provided != token:
+            # 404 (not 401) so the endpoint's existence isn't confirmed.
+            return Response(status_code=404)
+        return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)

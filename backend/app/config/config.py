@@ -172,6 +172,10 @@ class Settings(BaseSettings):
     otel_exporter_otlp_endpoint: str = ""
     otel_service_name: str = "aura-backend"
     metrics_enabled: bool = True
+    # In production, /metrics is only exposed when this token is set, and the
+    # caller must present it (Bearer or ?token=). Prevents public scraping of
+    # operational metrics. In non-production it's open for convenience.
+    metrics_token: str = ""
 
     @field_validator("cors_origins", "clerk_authorized_parties", mode="before")
     @classmethod
