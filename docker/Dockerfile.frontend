@@ -60,5 +60,6 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD ["node", "-e", "require('http').get('http://localhost:'+(process.env.PORT||3000)+'/',r=>process.exit(r.statusCode<500?0:1)).on('error',()=>process.exit(1))"]
 
-# Shell form so ${PORT} expands at runtime.
-CMD npm run start -- -p ${PORT:-3000}
+# `next start` reads $PORT from the environment natively (default 3000), so no
+# shell expansion or -p flag is needed.
+CMD ["npm", "run", "start"]
