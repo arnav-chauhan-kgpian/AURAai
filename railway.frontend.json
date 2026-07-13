@@ -5,6 +5,7 @@
     "dockerfilePath": "docker/Dockerfile.frontend"
   },
   "deploy": {
+    "startCommand": "sh -c \"npm run start -- -p $PORT\"",
     "healthcheckPath": "/",
     "healthcheckTimeout": 30,
     "restartPolicyType": "ON_FAILURE",
