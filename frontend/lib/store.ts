@@ -39,6 +39,8 @@ export interface SessionResults {
   palette: ColorPalette | null;
   tryOn: TryOnResponse | null;
   recommendations: RecommendationSet | null;
+  /** Local object URL of the uploaded selfie, for the heatmap backdrop. */
+  selfieUrl: string | null;
 }
 
 const EMPTY_RESULTS: SessionResults = {
@@ -47,6 +49,7 @@ const EMPTY_RESULTS: SessionResults = {
   palette: null,
   tryOn: null,
   recommendations: null,
+  selfieUrl: null,
 };
 
 interface SessionState {

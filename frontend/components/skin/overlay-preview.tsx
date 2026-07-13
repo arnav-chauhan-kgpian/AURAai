@@ -5,9 +5,17 @@ import { ScanFace } from "lucide-react";
 import { useState } from "react";
 
 import { Switch } from "@/components/ui/switch";
+import { humanize } from "@/lib/utils";
 import type { OverlayImage } from "@/types/api";
 
-/** Selfie preview with a toggleable concern heatmap overlay. */
+/**
+ * Selfie preview with a toggleable, per-concern heatmap overlay.
+ *
+ * When the backend returns real concern masks (embedded as data URIs), each
+ * becomes a selectable chip and is composited over the selfie with
+ * `mix-blend-screen`. With no real masks it falls back to a synthetic gradient
+ * so the panel still reads as a heatmap in demo mode.
+ */
 export function OverlayPreview({
   overlays,
   imageUrl,
@@ -16,7 +24,9 @@ export function OverlayPreview({
   imageUrl?: string;
 }) {
   const [heatmap, setHeatmap] = useState(true);
-  const realOverlay = overlays.find((o) => o.url)?.url;
+  const realOverlays = overlays.filter((o) => o.url);
+  const [selected, setSelected] = useState(0);
+  const active = realOverlays[selected] ?? realOverlays[0];
 
   return (
     <div className="space-y-3">
@@ -39,23 +49,25 @@ export function OverlayPreview({
           </div>
         )}
 
-        <AnimatePresence>
+        <AnimatePresence mode="wait">
           {heatmap && (
             <motion.div
+              key={active?.url ?? "synthetic"}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               className="absolute inset-0 mix-blend-screen"
               style={{
-                backgroundImage: realOverlay
-                  ? `url(${realOverlay})`
+                backgroundImage: active
+                  ? `url(${active.url})`
                   : [
                       "radial-gradient(circle at 38% 40%, hsl(0 80% 55% / 0.55), transparent 22%)",
                       "radial-gradient(circle at 60% 44%, hsl(20 90% 55% / 0.5), transparent 20%)",
                       "radial-gradient(circle at 50% 62%, hsl(38 90% 55% / 0.45), transparent 26%)",
                       "radial-gradient(circle at 30% 66%, hsl(0 80% 55% / 0.4), transparent 18%)",
                     ].join(","),
-                backgroundSize: realOverlay ? "cover" : undefined,
+                backgroundSize: active ? "cover" : undefined,
+                backgroundPosition: "center",
               }}
               aria-hidden
             />
@@ -73,6 +85,29 @@ export function OverlayPreview({
           </div>
         )}
       </div>
+
+      {/* Per-concern mask selector — only when the engine returned real masks. */}
+      {realOverlays.length > 1 && (
+        <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Concern heatmap">
+          {realOverlays.map((o, i) => (
+            <button
+              key={o.concern}
+              type="button"
+              role="tab"
+              aria-selected={i === selected}
+              onClick={() => setSelected(i)}
+              className={
+                "rounded-full border px-2.5 py-1 text-2xs font-medium capitalize transition-colors focus-visible:ring-focus " +
+                (i === selected
+                  ? "border-primary/50 bg-primary/10 text-primary"
+                  : "border-border text-muted-foreground hover:text-foreground")
+              }
+            >
+              {humanize(o.concern)}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

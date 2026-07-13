@@ -120,6 +120,9 @@ class Settings(BaseSettings):
     allowed_image_types: tuple[str, ...] = ("image/jpeg", "image/png", "image/webp")
     rate_limit_per_minute: int = 60
     rate_limit_enabled: bool = True
+    # Per-user daily cap on chat turns (protects free-tier upstream quotas).
+    # 0 disables the daily quota.
+    daily_user_quota: int = 100
     virus_scan_enabled: bool = False
     clamav_host: str = ""
     clamav_port: int = 3310
@@ -128,6 +131,9 @@ class Settings(BaseSettings):
     signed_url_ttl_seconds: int = 3600
     image_retention_days: int = 30
     consent_required: bool = True
+    # In-process retention sweeper (purges storage objects past the window).
+    retention_sweep_enabled: bool = True
+    retention_sweep_interval_hours: int = 24
 
     # --- Observability ----------------------------------------------------
     sentry_dsn: str = ""

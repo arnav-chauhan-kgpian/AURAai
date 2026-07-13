@@ -6,6 +6,7 @@ domain schemas. Endpoints and agent tools depend on this service rather than
 touching the provider directly.
 """
 
+import base64
 import io
 import json
 import zipfile
@@ -114,7 +115,7 @@ class SkinService:
         if zip_urls:
             try:
                 blob = await self._client.download_bytes(zip_urls[0])
-                scores = _parse_skin_zip(blob)
+                scores, overlays = _parse_skin_zip(blob)
             except Exception:  # noqa: BLE001 - a bad artifact must not fail the whole run
                 logger.warning("skin.result.zip_parse_failed", task_id=task_id)
         else:
@@ -141,35 +142,81 @@ class SkinService:
         )
 
 
-def _parse_skin_zip(blob: bytes) -> list[SkinScore]:
-    """Parse `score_info.json` out of a YouCam skin-analysis result ZIP.
+# Skip embedding any single mask larger than this (keeps the response bounded);
+# YouCam concern masks are small grayscale PNGs well under this ceiling.
+_MAX_MASK_BYTES = 500_000
+_MASK_EXTS = (".png", ".jpg", ".jpeg", ".webp")
 
-    The archive maps each ``hd_<concern>`` to ``{raw_score, ui_score,
-    output_mask_name}``. The ``hd_`` prefix is stripped for display.
+
+def _parse_skin_zip(blob: bytes) -> tuple[list[SkinScore], list[OverlayImage]]:
+    """Parse a YouCam skin-analysis result ZIP into scores and heatmap overlays.
+
+    The archive holds ``score_info.json`` mapping each ``hd_<concern>`` to
+    ``{raw_score, ui_score, output_mask_name}`` plus the per-concern mask images.
+    Scores are parsed directly; each mask image is embedded as a ``data:`` URI so
+    the client can render a real heatmap without a second network round-trip. The
+    ``hd_`` prefix is stripped for display.
     """
 
     scores: list[SkinScore] = []
-    with zipfile.ZipFile(io.BytesIO(blob)) as archive:
-        name = next(
-            (n for n in archive.namelist() if n.lower().endswith("score_info.json")), None
-        )
-        if not name:
-            return scores
-        info = json.loads(archive.read(name))
+    overlays: list[OverlayImage] = []
 
-    if isinstance(info, dict):
+    with zipfile.ZipFile(io.BytesIO(blob)) as archive:
+        names = archive.namelist()
+        info_name = next(
+            (n for n in names if n.lower().endswith("score_info.json")), None
+        )
+        if not info_name:
+            return scores, overlays
+        info = json.loads(archive.read(info_name))
+        masks_by_base = {n.rsplit("/", 1)[-1]: n for n in names if n.lower().endswith(_MASK_EXTS)}
+
+        if not isinstance(info, dict):
+            return scores, overlays
+
         for concern, value in info.items():
             if not isinstance(value, dict):
                 continue
             raw = _coerce_float(value.get("raw_score"))
             ui = _coerce_float(value.get("ui_score"))
-            if raw is None and ui is None:
-                continue
             label = concern[3:] if concern.startswith("hd_") else concern
-            scores.append(
-                SkinScore(concern=label, raw_score=raw or ui or 0.0, ui_score=ui or raw or 0.0)
-            )
-    return scores
+            if raw is not None or ui is not None:
+                scores.append(
+                    SkinScore(
+                        concern=label, raw_score=raw or ui or 0.0, ui_score=ui or raw or 0.0
+                    )
+                )
+            overlay = _mask_overlay(archive, masks_by_base, label, value)
+            if overlay is not None:
+                overlays.append(overlay)
+
+    return scores, overlays
+
+
+def _mask_overlay(
+    archive: zipfile.ZipFile,
+    masks_by_base: dict[str, str],
+    label: str,
+    value: dict[str, Any],
+) -> OverlayImage | None:
+    """Embed a concern's mask image (if any) as a data-URI overlay."""
+
+    mask_name = value.get("output_mask_name") or value.get("mask_name")
+    entry: str | None = None
+    if mask_name:
+        entry = masks_by_base.get(str(mask_name).rsplit("/", 1)[-1])
+    if entry is None:
+        # Fallback: match a mask file whose name contains the concern label.
+        entry = next((n for base, n in masks_by_base.items() if label in base.lower()), None)
+    if entry is None:
+        return None
+
+    data = archive.read(entry)
+    if not data or len(data) > _MAX_MASK_BYTES:
+        return None
+    mime = "image/jpeg" if entry.lower().endswith((".jpg", ".jpeg")) else "image/png"
+    encoded = base64.b64encode(data).decode("ascii")
+    return OverlayImage(concern=label, url=f"data:{mime};base64,{encoded}")
 
 
 def _parse_scores(document: Any) -> list[SkinScore]:

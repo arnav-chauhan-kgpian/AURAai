@@ -45,7 +45,7 @@ export function ResultsPanel({ className }: { className?: string }) {
           )}
           {results.skin && (
             <motion.div key="skin" layout {...fade}>
-              <SkinResultsCard data={results.skin} />
+              <SkinResultsCard data={results.skin} selfieUrl={results.selfieUrl} />
             </motion.div>
           )}
           {results.palette && (

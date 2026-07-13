@@ -17,6 +17,7 @@ from app.core.exceptions import ForbiddenError
 from app.core.logging import get_logger
 from app.schemas.agent import AgentImages
 from app.schemas.chat import ChatResponse
+from app.security.quota import DailyQuota
 from app.security.rate_limit import RateLimiter
 from app.security.sanitize import sanitize_text
 from app.security.uploads import scan_for_viruses, validate_image_upload
@@ -25,6 +26,7 @@ from app.services.privacy_service import PrivacyService
 
 router = APIRouter()
 _rate_limit = RateLimiter()
+_daily_quota = DailyQuota()
 logger = get_logger(__name__)
 
 
@@ -86,7 +88,11 @@ async def _build_images(
     )
 
 
-@router.post("", response_model=ChatResponse, dependencies=[Depends(_rate_limit)])
+@router.post(
+    "",
+    response_model=ChatResponse,
+    dependencies=[Depends(_rate_limit), Depends(_daily_quota)],
+)
 async def chat(
     request: Request,
     ctx: RequestContextDep,
@@ -124,7 +130,7 @@ async def chat(
     return response
 
 
-@router.post("/stream", dependencies=[Depends(_rate_limit)])
+@router.post("/stream", dependencies=[Depends(_rate_limit), Depends(_daily_quota)])
 async def chat_stream(
     request: Request,
     ctx: RequestContextDep,

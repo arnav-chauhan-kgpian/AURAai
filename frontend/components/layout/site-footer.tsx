@@ -19,6 +19,9 @@ export function SiteFooter() {
               {link.label}
             </Link>
           ))}
+          <Link href="/privacy" className="hover:text-foreground">
+            Privacy
+          </Link>
         </nav>
       </div>
     </footer>

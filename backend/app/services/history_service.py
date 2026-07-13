@@ -87,7 +87,8 @@ class HistoryService:
                     "image_key": image_key,
                     "task_id": response.skin_analysis.task_id,
                     "scores": [s.model_dump() for s in response.skin_analysis.scores],
-                    "overlays": [o.model_dump() for o in response.skin_analysis.overlays],
+                    # Store only concern labels, not the heavy base64 mask URIs.
+                    "overlays": [{"concern": o.concern} for o in response.skin_analysis.overlays],
                 }
             )
 

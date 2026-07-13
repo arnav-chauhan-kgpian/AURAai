@@ -8,7 +8,13 @@ import { ScoreGauge } from "@/components/skin/score-gauge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { SkinAnalysisResponse } from "@/types/api";
 
-export function SkinResultsCard({ data }: { data: SkinAnalysisResponse }) {
+export function SkinResultsCard({
+  data,
+  selfieUrl,
+}: {
+  data: SkinAnalysisResponse;
+  selfieUrl?: string | null;
+}) {
   const sorted = [...data.scores].sort((a, b) => b.ui_score - a.ui_score);
   const top = sorted.slice(0, 3);
   const rest = sorted.slice(3);
@@ -36,7 +42,7 @@ export function SkinResultsCard({ data }: { data: SkinAnalysisResponse }) {
           </div>
         )}
 
-        <OverlayPreview overlays={data.overlays} />
+        <OverlayPreview overlays={data.overlays} imageUrl={selfieUrl ?? undefined} />
       </CardContent>
     </Card>
   );

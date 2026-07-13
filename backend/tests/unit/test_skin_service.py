@@ -1,8 +1,12 @@
 """End-to-end unit test for the skin analysis workflow (mocked YouCam)."""
 
+import io
+import json
+import zipfile
+
 import httpx
 
-from app.services.skin_service import SkinService
+from app.services.skin_service import SkinService, _parse_skin_zip
 from app.services.upload_service import UploadService
 
 
@@ -71,3 +75,33 @@ async def test_analyze_runs_full_workflow(youcam) -> None:
     assert pore.ui_score == 65.0
     assert len(result.overlays) == 1
     assert result.overlays[0].url.endswith("mask_pore.png")
+
+
+# A 1x1 PNG (smallest valid image) used as a fake concern mask.
+_PNG_1PX = bytes.fromhex(
+    "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4"
+    "890000000a49444154789c6360000002000155a2b4ee0000000049454e44ae426082"
+)
+
+
+def test_parse_skin_zip_extracts_scores_and_mask_overlays() -> None:
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr(
+            "score_info.json",
+            json.dumps(
+                {
+                    "hd_acne": {"raw_score": 20, "ui_score": 80, "output_mask_name": "acne.png"},
+                    "hd_pore": {"raw_score": 30, "ui_score": 70, "output_mask_name": "pore.png"},
+                }
+            ),
+        )
+        archive.writestr("acne.png", _PNG_1PX)
+        archive.writestr("pore.png", _PNG_1PX)
+
+    scores, overlays = _parse_skin_zip(buffer.getvalue())
+
+    assert {s.concern for s in scores} == {"acne", "pore"}
+    assert len(overlays) == 2
+    assert all(o.url.startswith("data:image/png;base64,") for o in overlays)
+    assert {o.concern for o in overlays} == {"acne", "pore"}

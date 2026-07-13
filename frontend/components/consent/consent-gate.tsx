@@ -10,6 +10,7 @@
  * (no Clerk) the backend skips the consent gate, so this renders nothing.
  */
 import { ShieldCheck } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -79,7 +80,11 @@ export function ConsentGate() {
           </Button>
         </div>
         <p className="mt-4 text-2xs text-muted-foreground">
-          You can still chat for styling advice without a selfie.
+          You can still chat for styling advice without a selfie. Read our{" "}
+          <Link href="/privacy" className="text-primary underline">
+            privacy &amp; data-use policy
+          </Link>
+          .
         </p>
       </div>
     </Dialog>

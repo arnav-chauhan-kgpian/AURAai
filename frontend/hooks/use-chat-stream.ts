@@ -43,7 +43,17 @@ export function useChatStream() {
 
     store.setStatus("streaming");
     store.addUserMessage(message, Boolean(faceImage || garmentImage));
-    store.setResults({ intent: null, skin: null, palette: null, tryOn: null, recommendations: null });
+    // Keep a local preview of the selfie so the heatmap can render over the
+    // real face; it never leaves the browser.
+    const selfieUrl = faceImage ? URL.createObjectURL(faceImage) : null;
+    store.setResults({
+      intent: null,
+      skin: null,
+      palette: null,
+      tryOn: null,
+      recommendations: null,
+      selfieUrl,
+    });
 
     const initial: TimelinePhase[] = [];
     if (faceImage) initial.push({ id: "upload", status: "active" });

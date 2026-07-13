@@ -24,6 +24,7 @@ from app.middleware.request_context import RequestContextMiddleware
 from app.observability.setup import init_observability
 from app.security.headers import SecurityHeadersMiddleware
 from app.security.secrets import validate_secrets
+from app.services.retention import RetentionScheduler
 from app.services.youcam_client import YouCamClient
 from app.storage.object_store import ObjectStore
 
@@ -72,6 +73,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     else:
         logger.warning("agent.disabled", reason="no LLM provider key configured (Groq/Gemini)")
 
+    app.state.retention = RetentionScheduler(settings, app.state.object_store)
+    app.state.retention.start()
+
     logger.info(
         "application.startup",
         environment=settings.environment,
@@ -81,6 +85,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     try:
         yield
     finally:
+        await app.state.retention.stop()
         await app.state.youcam_client.aclose()
         await app.state.redis.aclose()
         logger.info("application.shutdown")
