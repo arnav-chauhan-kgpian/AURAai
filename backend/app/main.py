@@ -135,6 +135,18 @@ def create_app() -> FastAPI:
 
     app.include_router(health.router, include_in_schema=False)
 
+    @app.get("/", include_in_schema=False)
+    async def root() -> dict[str, str]:
+        """Friendly service banner at the API root (avoids a bare 404)."""
+
+        return {
+            "service": "AuraAI API",
+            "status": "ok",
+            "health": "/health",
+            "ready": "/ready",
+            "api": settings.api_v1_prefix,
+        }
+
     return app
 
 

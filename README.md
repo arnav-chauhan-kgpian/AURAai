@@ -6,9 +6,27 @@
 
 **An autonomous AI stylist that analyses your skin, renders virtual try-ons, and plans personalised skincare &amp; outfits — the agent decides which tools to run, you never pick an API.**
 
-`Next.js 15` · `FastAPI` · `LangGraph` · `Gemini 2.5 Flash` · `YouCam` · `Supabase` · `Redis` · `Docker`
+`Next.js 15` · `FastAPI` · `LangGraph` · `Groq (Llama 3.3 70B)` · `YouCam` · `Supabase` · `Redis` · `Docker`
 
 </div>
+
+---
+
+## 🚀 Live Demo
+
+> **[✦ Open AuraAI →](https://frontend-production-cae3a.up.railway.app/)**
+
+| | URL |
+| --- | --- |
+| **App (frontend)** | https://frontend-production-cae3a.up.railway.app/ |
+| **API (backend)** | https://auraai-production-1419.up.railway.app/ |
+| **API health** | https://auraai-production-1419.up.railway.app/health |
+| **API readiness** | https://auraai-production-1419.up.railway.app/ready |
+
+Deployed on **Railway** as two services (FastAPI backend + Next.js frontend) with
+Supabase (Postgres + Storage) and Upstash Redis as managed data stores. Sign in to
+run the full agent (skin analysis, recommendations, virtual try-on), or explore the
+landing experience anonymously.
 
 ---
 
@@ -31,7 +49,7 @@ right capabilities, streams its plan live, and synthesises one warm, grounded re
 | --- | --- |
 | 🔬 **Skin AI** | Dermatologist-grade concern scoring from one selfie (YouCam Skin Analysis) |
 | 👕 **Virtual Try-On** | Realistic garment rendering (YouCam Apparel Try-On) |
-| 🎨 **AI Stylist** | Palette + skincare + outfit + shopping, reasoned by Gemini |
+| 🎨 **AI Stylist** | Palette + skincare + outfit + shopping, reasoned by Groq (Llama 3.3 70B) |
 | ✦ **Aura Score** | A signature 0–100 confidence score blending skin, color &amp; style |
 | ⚡ **Demo Mode** | Full experience offline — three curated personas, zero API keys |
 
@@ -49,11 +67,11 @@ right capabilities, streams its plan live, and synthesises one warm, grounded re
 ┌──────────────────────────────────────── FastAPI backend ─────────────────────────────────────────┐
 │  api ─▶ AuraAgent.run() ── compiled LangGraph ───────────────────────────────────────────────     │
 │            detect_intent → (route) → execute_tools → summarize → persist_memory                    │
-│            Planner (Gemini structured) · ToolRegistry · Summarizer · ConversationMemory            │
+│            Planner (Groq structured) · ToolRegistry · Summarizer · ConversationMemory              │
 │  tools: SkinAnalysisTool · VirtualTryOnTool · ColorPaletteTool · RecommendationTool · Memory       │
 └───────┬──────────────────────────┬───────────────────────────┬────────────────────┬───────────────┘
         ▼                          ▼                           ▼                    ▼
-  YouCam Skin/VTO            Gemini 2.5 Flash              Supabase              Redis
+  YouCam Skin/VTO            Groq Llama 3.3/3.1           Supabase              Redis
   (async task API)          (reason + stream)          (profile store)     (session memory)
 ```
 
@@ -66,8 +84,8 @@ See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) and [`docs/AGENT.md`](docs/AG
 **Frontend** — Next.js 15 (App Router) · TypeScript · TailwindCSS · shadcn-style UI ·
 Framer Motion · React Query · Zustand · Lucide · react-markdown
 
-**Backend** — FastAPI · Python 3.12 · Poetry · LangGraph · LangChain · Gemini 2.5 Flash ·
-httpx (async, pooled) · Pydantic · structlog
+**Backend** — FastAPI · Python 3.12 · Poetry · LangGraph · LangChain · Groq (Llama 3.3 70B
++ 3.1 8B; Gemini also supported) · httpx (async, pooled) · Pydantic · structlog
 
 **Infra** — Supabase (Postgres + Storage) · Redis · Docker + Docker Compose
 
@@ -114,6 +132,21 @@ make frontend    # next dev                          → http://localhost:3000
 
 ---
 
+## Deployment
+
+Live on **Railway** as two Dockerized services (see the [Live Demo](#-live-demo) above).
+Config-as-code ships in the repo:
+
+- [`railway.json`](railway.json) — backend service (`docker/Dockerfile.backend`, health at `/health`).
+- [`railway.frontend.json`](railway.frontend.json) — frontend service (`docker/Dockerfile.frontend`).
+- Step-by-step: [`RAILWAY_DEPLOY.md`](RAILWAY_DEPLOY.md) (dashboard + CLI) and [`DEPLOYMENT.md`](DEPLOYMENT.md).
+
+Production hardening is verified live: HTTPS + HSTS, security headers, CORS locked to the
+frontend origin, per-user rate limiting, auth enforcement (Clerk JWT via JWKS), interactive
+docs disabled, gated `/metrics`, and `/health` + `/ready` probes.
+
+---
+
 ## Environment variables
 
 | Variable | Description |
@@ -121,7 +154,8 @@ make frontend    # next dev                          → http://localhost:3000
 | `ENVIRONMENT` / `DEBUG` | Runtime mode and verbose logging |
 | `YOUCAM_API_KEY` / `YOUCAM_SECRET_KEY` | YouCam (Perfect Corp) credentials (secret = RSA public key) |
 | `YOUCAM_BASE_URL` | YouCam API host |
-| `GEMINI_API_KEY` / `GEMINI_MODEL` | Google Gemini (default `gemini-2.5-flash`) |
+| `GROQ_API_KEY` / `GROQ_MODEL` | Groq LLM (default `llama-3.3-70b-versatile`) — primary provider |
+| `GEMINI_API_KEY` / `GEMINI_MODEL` | Google Gemini (alternative provider; `LLM_PROVIDER=auto` prefers Groq) |
 | `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` | Supabase project |
 | `REDIS_URL` | Redis connection |
 | `NEXT_PUBLIC_API_BASE_URL` | Backend URL exposed to the frontend |
@@ -156,7 +190,7 @@ aura-ai/
 ```
 START → detect_intent → (conditional route) → execute_tools → summarize → persist_memory → END
              │                                      │
-     Planner (Gemini,               tools run in intent order, threading state:
+     Planner (Groq,                 tools run in intent order, threading state:
      structured output)             skin_analysis → color_palette → recommendation → virtual_try_on
 ```
 
@@ -182,11 +216,15 @@ A 15-second capture of a full turn (selfie → streaming timeline → Aura Score
 
 ## Future roadmap
 
-- Long-term preference memory beyond a session (loved/disliked looks).
-- SSE tool-level progress (per-concern streaming) and voice input.
+**Shipped since v1:** per-user history + skin-progress-over-time journal · real
+per-tool SSE progress · biometric-consent flow · real skin heatmaps · Clerk auth ·
+per-user quotas + retention sweeper.
+
+**Next:**
+- Long-term preference memory beyond a session (loved/disliked looks) and voice input.
 - Real product catalogue for shoppable, in-stock recommendations.
 - OpenTelemetry tracing of agent plans; automated recommendation-quality evals.
-- Supabase Auth, saved looks, and a personal skin journal over time.
+- Clerk **production** instance (currently a development instance) and custom domains.
 
 ---
 
