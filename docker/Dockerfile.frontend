@@ -5,8 +5,12 @@ FROM node:20-slim AS deps
 
 WORKDIR /app
 
-COPY frontend/package.json frontend/package-lock.json* ./
-RUN npm ci
+# .npmrc carries `legacy-peer-deps=true` (Clerk's React peer range is stricter
+# than needed; React 19 works at runtime). Copy it BEFORE install so `npm ci`
+# honors it; also pass the flag explicitly so the build never depends on npmrc
+# discovery.
+COPY frontend/package.json frontend/package-lock.json* frontend/.npmrc* ./
+RUN npm ci --legacy-peer-deps
 
 # --- Builder ----------------------------------------------------------------
 FROM node:20-slim AS builder
