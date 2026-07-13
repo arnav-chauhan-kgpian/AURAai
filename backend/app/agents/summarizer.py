@@ -58,7 +58,13 @@ def _compact_context(state: AuraState) -> str:
             lines.append("Colors: " + ", ".join(recs.colors[:6]))
 
     if state.get("try_on") is not None:
-        lines.append("A virtual try-on image was rendered (shown to the user).")
+        lines.append(
+            "A virtual try-on image was rendered and shown to the user. You cannot "
+            "see the garment, so never name or guess its color, pattern, print, or "
+            "material — refer to it neutrally (e.g. 'the piece you tried on'). Any "
+            "colors mentioned above are the user's recommended palette, NOT the "
+            "garment's color."
+        )
 
     history = state.get("history") or []
     if history:

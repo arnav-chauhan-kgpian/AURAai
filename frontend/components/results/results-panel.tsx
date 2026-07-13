@@ -55,7 +55,7 @@ export function ResultsPanel({ className }: { className?: string }) {
           )}
           {results.tryOn && (
             <motion.div key="vto" layout {...fade}>
-              <VtoCard data={results.tryOn} />
+              <VtoCard data={results.tryOn} beforeSrc={results.selfieUrl} />
             </motion.div>
           )}
           {results.recommendations && (

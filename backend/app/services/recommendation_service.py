@@ -83,9 +83,17 @@ class RecommendationService:
             "preferred_style": context.preferred_style,
             "recent_history": context.history[-3:],
         }
+        guardrail = (
+            "You cannot see the garment the user tried on. Never state or assume "
+            "its color, pattern, or material; the colors in `color_palette` are the "
+            "user's recommended palette, not the garment.\n"
+            if payload["has_try_on"]
+            else ""
+        )
         return (
             "Generate recommendations for this user using only the context below.\n"
             "Populate skincare, outfit, colors and shopping as warranted by the "
-            "signals; leave a group empty if there is no basis for it.\n\n"
+            "signals; leave a group empty if there is no basis for it.\n"
+            f"{guardrail}\n"
             f"CONTEXT:\n{json.dumps(payload, indent=2, ensure_ascii=False)}"
         )

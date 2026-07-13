@@ -8,7 +8,13 @@ import { Dialog } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { TryOnResponse } from "@/types/api";
 
-export function VtoCard({ data }: { data: TryOnResponse }) {
+export function VtoCard({
+  data,
+  beforeSrc,
+}: {
+  data: TryOnResponse;
+  beforeSrc?: string | null;
+}) {
   const [fullscreen, setFullscreen] = useState(false);
   const afterSrc = data.output_images.find(Boolean);
 
@@ -39,14 +45,14 @@ export function VtoCard({ data }: { data: TryOnResponse }) {
         </div>
       </CardHeader>
       <CardContent>
-        <BeforeAfterSlider afterSrc={afterSrc} />
+        <BeforeAfterSlider beforeSrc={beforeSrc ?? undefined} afterSrc={afterSrc} />
         <p className="mt-3 text-xs text-muted-foreground">
           Drag the handle to compare. Open fullscreen to zoom.
         </p>
       </CardContent>
 
       <Dialog open={fullscreen} onClose={() => setFullscreen(false)} label="Try-on fullscreen" className="max-w-xl">
-        <ZoomView src={afterSrc} />
+        <ZoomView src={afterSrc} beforeSrc={beforeSrc ?? undefined} />
       </Dialog>
     </Card>
   );
@@ -77,7 +83,7 @@ function IconAction({
   );
 }
 
-function ZoomView({ src }: { src?: string }) {
+function ZoomView({ src, beforeSrc }: { src?: string; beforeSrc?: string }) {
   const [zoom, setZoom] = useState(1);
   return (
     <div className="p-4">
@@ -86,7 +92,7 @@ function ZoomView({ src }: { src?: string }) {
           className="size-full transition-transform duration-200"
           style={{ transform: `scale(${zoom})` }}
         >
-          <BeforeAfterSlider afterSrc={src} className="rounded-none border-0" />
+          <BeforeAfterSlider beforeSrc={beforeSrc} afterSrc={src} className="rounded-none border-0" />
         </div>
       </div>
       <div className="mt-4 flex items-center justify-center gap-3">
