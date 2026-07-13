@@ -97,12 +97,19 @@ def create_app() -> FastAPI:
     configure_logging()
     settings = get_settings()
 
+    # Disable interactive docs / schema in production to reduce surface area.
+    docs_kwargs = (
+        {"docs_url": None, "redoc_url": None, "openapi_url": None}
+        if settings.is_production
+        else {}
+    )
     app = FastAPI(
         title=settings.app_name,
         version="0.1.0",
         description="AuraAI — Personal Skin & Style Agent",
         debug=settings.debug,
         lifespan=lifespan,
+        **docs_kwargs,
     )
 
     # Middleware runs in reverse registration order: request-context first
